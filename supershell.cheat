@@ -1,0 +1,315 @@
+% supershell, navigation
+
+# Jump to a bookmarked directory (fzf picker)
+j
+
+# Jump to a specific bookmark
+j <bookmark>
+
+# Yazi file manager (cd on exit)
+y
+
+# Zoxide jump to a directory
+z <query>
+
+# Fuzzy find a file and open in nvim
+nf
+
+# Fuzzy SSH connect from ~/.ssh/config
+ss
+
+$ bookmark: echo -e "homelab\ndots\nfish\nnvim\nhypr\nnotes\nprojects\nscripts"
+$ query: zoxide query -l --- --preview "eza --color=always --icons=always {}"
+
+% supershell, search
+
+# Ripgrep → fzf → open in nvim at exact line
+rgf <pattern>
+
+# Fuzzy find any file (opens in nvim or cd's into dirs)
+fzf
+
+# Search with ripgrep
+rg <pattern>
+
+# Find files by name with fd
+fd <pattern>
+
+# Find files by extension
+fd -e <ext>
+
+$ ext: echo -e "rs\npy\njs\nts\ngo\nyml\ntoml\njson\nmd\nsh\nfish"
+
+% supershell, git
+
+# Lazygit TUI
+lg
+
+# Git status (short)
+gs
+
+# Git diff
+gd
+
+# Git diff staged
+gds
+
+# Git log (graph, 20 entries)
+gl
+
+# Git log (all branches)
+gla
+
+# Git commit
+gc
+
+# Git commit amend
+gca
+
+# Git push
+gp
+
+# Git pull rebase
+gpl
+
+# Fuzzy branch switch (sorted by recent)
+gbf
+
+# Show 10 most recently checked out branches
+gbr
+
+# Fixup commit — pick a commit to fixup via fzf
+gfix
+
+# Git absorb — auto-create fixup commits for staged changes
+git absorb
+
+# Rebase with autosquash (apply fixups)
+git rebase -i --autosquash <branch>
+
+$ branch: git branch --format='%(refname:short)'
+
+% supershell, docker
+
+# Lazydocker TUI
+ld
+
+# Pretty container list
+dps
+
+# Fuzzy exec shell into a running container
+dsh
+
+# Fuzzy follow container logs
+dlf
+
+# Compose up (detached)
+dcu
+
+# Compose down
+dcd
+
+# Compose restart
+dcr
+
+# Compose logs follow
+dcl
+
+# Compose ps
+dcps
+
+# Docker logs follow for specific container
+dlog <container>
+
+# Exec into a specific container
+docker exec -it <container> bash
+
+# Stop all running containers
+docker stop $(docker ps -q)
+
+# Remove all stopped containers
+docker container prune -f
+
+# Remove dangling images
+docker image prune -f
+
+# Full Docker cleanup (containers, images, volumes, networks)
+docker system prune -af --volumes
+
+$ container: docker ps --format '{{.Names}}'
+
+% supershell, system
+
+# Show listening ports
+ports
+
+# Fuzzy process kill
+psk
+
+# Disk usage (biggest files/dirs)
+big <count>
+
+# Disk free space
+df
+
+# System monitor (btop)
+top
+
+# Alt system monitor (bottom)
+btm
+
+# Per-process bandwidth monitor (needs sudo)
+sudo bandwhich
+
+# Restart a systemd service
+sudo systemctl restart <service>
+
+# Check status of a systemd service
+systemctl status <service>
+
+# Follow journal for a service (with bat highlighting)
+logtail <service>
+
+# Follow journal for a service (raw)
+journalctl -fu <service>
+
+# Enable and start a service
+sudo systemctl enable --now <service>
+
+$ service: systemctl list-units --type=service --no-pager --no-legend | awk '{print $1}'
+$ count: echo -e "10\n20\n50\n100"
+
+% supershell, clipboard
+
+# Copy file contents to clipboard
+clipfile <file>
+
+# Copy current directory path to clipboard
+clipwd
+
+# Pipe command output to clipboard
+<cmd> | clip
+
+# Paste clipboard to stdout
+clippaste
+
+$ file: fd --type f --hidden --strip-cwd-prefix
+$ cmd: echo -e "pwd\ndate\ncat file.txt\nrg pattern\ngit log --oneline -10"
+
+% supershell, notes
+
+# View scratch notes
+note
+
+# Add a quick note
+note add <text>
+
+# Edit notes in nvim
+note edit
+
+# Clear all notes
+note clear
+
+$ text: echo ""
+
+% supershell, network
+
+# DNS lookup (A, AAAA, CNAME, MX)
+dns <domain>
+
+# DNS lookup for specific record type
+doggo <domain> <type>
+
+# HTTP request (GET)
+xh GET <url>
+
+# HTTP request (POST JSON)
+xh POST <url> <key>=<value>
+
+# Check Tailscale status
+tailscale status
+
+# Connect to Tailscale
+tailscale up
+
+$ domain: echo ""
+$ type: echo -e "A\nAAAA\nCNAME\nMX\nTXT\nNS\nSOA\nSRV"
+$ url: echo ""
+$ key: echo ""
+$ value: echo ""
+
+% supershell, pacman
+
+# Install a package
+sudo pacman -S <package>
+
+# Search for a package
+pacman -Ss <query>
+
+# Remove a package and its deps
+sudo pacman -Rns <installed_package>
+
+# Full system upgrade
+sudo pacman -Syu
+
+# AUR install
+yay -S <aur_query>
+
+# AUR search
+yay -Ss <aur_query>
+
+# List explicitly installed packages
+pacman -Qe
+
+# List orphaned packages
+pacman -Qdt
+
+# Remove orphaned packages
+sudo pacman -Rns $(pacman -Qdtq)
+
+$ package: pacman -Ssq
+$ query: echo ""
+$ installed_package: pacman -Qeq
+$ aur_query: echo ""
+
+% supershell, files
+
+# List files (colored, icons, dirs first)
+ls
+
+# List all files with details and git status
+ll
+
+# Tree view (2 levels)
+lt
+
+# Tree view (3 levels, all files)
+lta
+
+# Cat with syntax highlighting
+bat <file>
+
+# Cat plain mode (no line numbers/header)
+catp <file>
+
+$ file: fd --type f --hidden --strip-cwd-prefix
+
+% supershell, zellij
+
+# Start zellij
+zj
+
+# Attach to existing session
+zja
+
+# List sessions
+zjl
+
+# New named session
+zellij --session <name>
+
+# Kill a session
+zellij kill-session <session>
+
+$ name: echo ""
+$ session: zellij list-sessions -s 2>/dev/null

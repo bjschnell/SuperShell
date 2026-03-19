@@ -1,0 +1,61 @@
+# Bash equivalent of PowerShell profile commands
+
+# sudo alias (though 'sudo' already exists natively in bash)
+alias sudo='sudo '
+
+# ls replacement with eza
+alias ls='eza --color=always --group-directories-first --icons=always'
+
+# cat replacement with bat
+alias cat='bat'
+
+# tools function (adjust the path to your actual file location)
+tools() {
+    bat /path/to/your/tools.txt "$@"
+}
+
+# fd function with default options
+fd() {
+    command fd --hidden --strip-cwd-prefix "$@"
+}
+
+# fzf function with bat integration
+fzf() {
+    local result
+    result=$(command fzf --preview 'bat --color=always --style=numbers --line-range=:500 {}' "$@")
+    
+    if [ -n "$result" ]; then
+        # If result is a file, open it in your editor or navigate to its directory
+        if [ -f "$result" ]; then
+            # Uncomment one of these based on your preference:
+            nvim "$result"
+            # cd "$(dirname "$result")"  # Navigate to file's directory
+        elif [ -d "$result" ]; then
+            cd "$result"  # Navigate to directory
+        else
+            echo "$result"  # Just output the result
+        fi
+    fi
+}
+
+# Baby Yoda ASCII art
+echo "
+⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⠄⣀⡠⠤⢴⡴⣤⣀
+⠻⡽⣶⣦⢤⣤⣤⣤⠒⣴⠋⣁⣐⠑⣀⣀⠐⢒⡉⠢⡤⢤⣤⣀⣀⣀⣀⣠⣤⡶
+⠄⠹⣦⡈⠉⠁⠄⢸⡀⠇⣨⢷⣮⡕⠄⠄⢰⡥⣬⣅⢱⢠⠬⠭⠭⠽⠒⣢⡟
+⠄⠄⠈⢿⣦⣀⠄⠸⣇⠸⣻⣿⣿⣿⣠⢄⣿⣿⣿⡯⢢⡟⠄⠄⢀⣠⡾⠋
+⠄⠄⠄⠄⠉⠛⠷⠶⠼⣆⠄⠄⠐⣦⠾⢷⣤⠆⠄⢀⣼⠥⠴⠶⠟⠉
+⠄⠄⠄⠄⠄⠄⠄⠄⡾⢏⠓⠶⠶⠶⠯⢭⠶⠴⠖⠉⡸⢄
+⠄⠄⠄⠄⠄⠄⠄⢠⡳⢮⠳⠶⠤⠤⠤⢾⠶⠶⠶⠟⣡⢼
+⠄⠄⠄⠄⠄⠄⠄⣣⡜⡾⠄⠄⠄⠄⠄⢸⠄⠄⠄⠄⡏⠔⣳
+⠄⠄⠄⠄⠄⠄⢠⡿⡄⠄⠄⠄⠄⠄⠄⢸⡇⠄⠄⠄⠙⢊⣧
+⠄⠄⠄⠄⠄⠄⣾⠁⠄⠄⠄⠄⠄⠄⠄⢸⡇⠄⠄⠄⠄⠉⠘⣧
+⠄⠄⠄⠄⠄⠄⠹⣇⣀⣀⣀⣀⣀⣀⣀⣾⣁⣀⠄⠄⢀⣀⣠⠟
+"
+
+# Initialize starship prompt (if you're using starship)
+eval "$(starship init bash)"
+
+# Initialize zoxide
+eval "$(zoxide init bash)"
+
