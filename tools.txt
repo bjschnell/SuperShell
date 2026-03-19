@@ -1,0 +1,209 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  ⚡ SUPER SHELL — Tools Reference                                            ║
+║  Run: tools | tools <search>   (uses bat, so you get syntax highlighting)    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+═══ CORE REPLACEMENTS ════════════════════════════════════════════════════════
+
+  eza       → ls replacement     │ ls, ll, lt, lta
+              Colored output, icons, git integration, tree view.
+              https://github.com/eza-community/eza
+
+  bat       → cat replacement    │ cat, catp (plain)
+              Syntax highlighting, line numbers, git diff markers.
+              Man pages piped through bat automatically via MANPAGER.
+              https://github.com/sharkdp/bat
+
+  fd        → find replacement   │ fd
+              Respects .gitignore, regex by default, --hidden enabled.
+              https://github.com/sharkdp/fd
+
+  fzf       → fuzzy finder       │ fzf, fzf-open, nf (fzf → nvim)
+              Ctrl+R for history (via atuin), Ctrl+Y copies selection.
+              Bat preview built into all fzf functions.
+              https://github.com/junegunn/fzf
+
+  ripgrep   → grep replacement   │ rg, rgf (rg → fzf → nvim at line)
+              Fast recursive search, respects .gitignore.
+              https://github.com/BurntSushi/ripgrep
+
+  zoxide    → cd replacement     │ z <partial>
+              Learns your most-used directories. Just type fragments.
+              z proj → cd ~/projects, z fish → cd ~/.config/fish
+              https://github.com/ajeetdsouza/zoxide
+
+  dust      → du replacement     │ du, big [n]
+              Visual disk usage with bar chart. big 20 = top 20.
+              https://github.com/bootandy/dust
+
+  duf       → df replacement     │ df
+              Pretty disk free output with color and device grouping.
+              https://github.com/muesli/duf
+
+  procs     → ps replacement     │ ps
+              Colored process list with tree view and keyword search.
+              https://github.com/dalance/procs
+
+  sd        → sed replacement    │ sed
+              Intuitive string replacement. sd 'old' 'new' file.
+              No backslash hell — uses normal regex syntax.
+              https://github.com/chmln/sd
+
+  xh        → curl replacement   │ curl
+              HTTPie-style request syntax. xh GET api.example.com
+              Colored output, auto JSON formatting.
+              https://github.com/ducaale/xh
+
+  doggo     → dig replacement    │ dig, dns <domain>
+              DNS lookup with color. dns example.com queries A/AAAA/CNAME/MX.
+              https://github.com/mr-karan/doggo
+
+  trash-cli → rm replacement     │ rm (aliased to trash-put)
+              Moves to trash instead of deleting. Recover with trash-restore.
+              rmreal for actual /usr/bin/rm when needed.
+              https://github.com/andreafrancia/trash-cli
+
+═══ SYSTEM MONITORING ════════════════════════════════════════════════════════
+
+  btop      → top replacement    │ top
+              Full TUI system monitor — CPU, memory, disk, network, processes.
+              https://github.com/aristocratos/btop
+
+  bottom    → alt system monitor │ btm
+              Rust-based, widget layout. Good for quick glances.
+              https://github.com/ClementTsang/bottom
+
+  bandwhich → network monitor    │ bandwhich (needs sudo)
+              Per-process/connection bandwidth usage in real time.
+              https://github.com/imsnif/bandwhich
+
+═══ DATA WRANGLING ═══════════════════════════════════════════════════════════
+
+  jq        → JSON processor     │ jq
+              Pipe JSON and slice/filter/transform it.
+              curl api | jq '.results[0].name'
+              https://github.com/jqlang/jq
+
+  yq        → YAML processor     │ yq
+              Same idea as jq but for YAML (and TOML/XML).
+              yq '.services' docker-compose.yml
+              https://github.com/mikefarah/yq
+
+  xsv       → CSV toolkit        │ xsv
+              Fast CSV slicing, joining, stats, frequency analysis.
+              xsv select name,age data.csv | xsv sort -s age
+              https://github.com/BurntSushi/xsv
+
+  csvlens   → CSV viewer         │ csvlens
+              Interactive TUI for browsing CSV files. Search, sort, filter.
+              https://github.com/YS-L/csvlens
+
+═══ GIT ══════════════════════════════════════════════════════════════════════
+
+  lazygit   → git TUI            │ lg
+              Full git interface — staging, commits, branches, rebasing,
+              conflict resolution, stash management. All without typing.
+              https://github.com/jesseduffield/lazygit
+
+  delta     → git pager          │ automatic (configured as core.pager)
+              Side-by-side diffs, syntax highlighting, line numbers.
+              Dracula theme. Shows in git diff, git log -p, etc.
+              https://github.com/dandavison/delta
+
+  git-absorb → auto fixup        │ git absorb
+              Stages changes and auto-creates fixup commits for the right
+              parent. Run git rebase -i --autosquash to apply.
+              https://github.com/tummychow/git-absorb
+
+  Custom functions:
+    gs/gd/gds/gl/gla/gc/gca/gp/gpl/gb/gco/gsw/gst/gsp  (abbreviations)
+    gbf   → fzf branch switcher (sorted by recent commit)
+    gbr   → show 10 most recent branches you've checked out
+    gfix  → fzf pick a commit → create fixup commit for it
+
+═══ DOCKER ═══════════════════════════════════════════════════════════════════
+
+  lazydocker → docker TUI        │ ld
+              Containers, images, volumes, logs, stats — all in one TUI.
+              https://github.com/jesseduffield/lazydocker
+
+  Custom functions:
+    dps   → pretty container list (name, status, ports)
+    dsh   → fzf pick a running container → exec shell into it
+    dlf   → fzf pick any container → follow its logs
+    dcu   → docker compose up -d
+    dcd   → docker compose down
+    dcr   → docker compose restart
+    dcl   → docker compose logs -f --tail 100
+    dce   → docker compose exec
+    dcps  → docker compose ps
+    dlog  → docker logs -f --tail 100 <container>
+
+═══ FILE MANAGEMENT ══════════════════════════════════════════════════════════
+
+  yazi      → file manager       │ y (with cd on exit)
+              Blazing fast TUI file manager. Image preview, bulk rename,
+              shell integration. Navigating in yazi updates your shell pwd.
+              https://github.com/sxyazi/yazi
+
+═══ SHELL & PRODUCTIVITY ═════════════════════════════════════════════════════
+
+  starship  → prompt             │ automatic
+              Cross-shell prompt. Shows git branch/status, language versions,
+              docker context, command duration. Config: ~/.config/starship.toml
+              https://github.com/starship/starship
+
+  atuin     → shell history      │ Ctrl+R (replaces default history search)
+              SQLite-backed, full-text searchable, syncs across machines.
+              atuin import auto — imports existing fish/bash/zsh history.
+              https://github.com/atuinsh/atuin
+
+  zellij    → multiplexer        │ zj, zja (attach), zjl (list sessions)
+              Modern tmux alternative. Persistent sessions, tabs, panes.
+              Built-in session manager and sane default keybindings.
+              https://github.com/zellij-org/zellij
+
+  navi      → cheatsheet         │ navi
+              Interactive cheatsheet tool. Integrates with fzf.
+              Community-maintained cheat repositories included.
+              https://github.com/denisidoro/navi
+
+  tldr      → quick help         │ tldr <command>
+              Practical command examples. Way faster than man pages.
+              tldr tar, tldr git rebase, tldr docker compose
+              https://github.com/dbrgn/tealdeer
+
+  wl-clipboard → clipboard       │ clip, clipfile, clipwd, clippaste
+              Wayland clipboard. Pipe anything: echo foo | clip
+              clipfile <file> copies contents, clipwd copies current path.
+              Ctrl+Y in fzf copies selection to clipboard.
+
+═══ NAVIGATION SHORTCUTS ═════════════════════════════════════════════════════
+
+  z <partial>    zoxide jump — learns your directories
+  y              yazi file manager (cd's to where you navigate)
+  j [bookmark]   jump to bookmarked directory (fzf picker if no arg)
+  ss             fzf SSH host picker from ~/.ssh/config
+  nf             fzf find file → open in nvim
+  rgf <pattern>  ripgrep → fzf → nvim at exact line
+
+═══ QUICK REFERENCE ══════════════════════════════════════════════════════════
+
+  shelp          print the super shell cheatsheet
+  tools          print this file (you're reading it)
+  note           view scratch notes
+  note add <x>   add a timestamped note
+  note edit      open notes in nvim
+  note clear     wipe notes
+  ports          show all listening ports
+  psk            fuzzy process kill
+  dns <domain>   DNS lookup (A, AAAA, CNAME, MX)
+  logtail <svc>  follow systemd journal with syntax highlighting
+  big [n]        show n biggest files/dirs (default 20)
+
+═══ SYSTEM SHORTCUTS ═════════════════════════════════════════════════════════
+
+  Systemd:   sc, sce (enable+start), scr (restart), scs (status)
+             scl (journal), sclf (journal follow)
+  Pacman:    pac (install), pacs (search), pacr (remove), pacu (upgrade)
+  AUR:       yay (install), yays (search)
