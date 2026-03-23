@@ -1,0 +1,174 @@
+name: Version Bump
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  bump-version:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine version bump from PR commits
+        id: bump
+        run: |
+          # Get all commit messages from the merged PR
+          COMMITS=$(git log --format="%s" ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+
+          BUMP="none"
+
+          while IFS= read -r msg; do
+            # BREAKING CHANGE or ! after type = major
+            if echo "$msg" | grep -qiE "^[a-z]+(\(.+\))?!:|BREAKING CHANGE"; then
+              BUMP="major"
+              break
+            fi
+
+            # feat = minor
+            if echo "$msg" | grep -qiE "^feat(\(.+\))?:"; then
+              if [ "$BUMP" != "major" ]; then
+                BUMP="minor"
+              fi
+            fi
+
+            # fix, docs, chore, refactor, style, perf, ci, build, test = patch
+            if echo "$msg" | grep -qiE "^(fix|docs|chore|refactor|style|perf|ci|build|test)(\(.+\))?:"; then
+              if [ "$BUMP" = "none" ]; then
+                BUMP="patch"
+              fi
+            fi
+          done <<< "$COMMITS"
+
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "Detected bump: $BUMP"
+
+      - name: Get current version
+        if: steps.bump.outputs.bump != 'none'
+        id: current
+        run: |
+          if [ -f VERSION ]; then
+            VERSION=$(cat VERSION)
+          else
+            VERSION="0.0.0"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Current version: $VERSION"
+
+      - name: Calculate new version
+        if: steps.bump.outputs.bump != 'none'
+        id: new
+        run: |
+          IFS='.' read -r major minor patch <<< "${{ steps.current.outputs.version }}"
+
+          case "${{ steps.bump.outputs.bump }}" in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+          esac
+
+          NEW_VERSION="${major}.${minor}.${patch}"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "New version: $NEW_VERSION"
+
+      - name: Update VERSION file
+        if: steps.bump.outputs.bump != 'none'
+        run: |
+          echo "${{ steps.new.outputs.version }}" > VERSION
+
+      - name: Generate changelog entry
+        if: steps.bump.outputs.bump != 'none'
+        run: |
+          NEW_VERSION="${{ steps.new.outputs.version }}"
+          DATE=$(date +%Y-%m-%d)
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+
+          # Build the new entry
+          ENTRY="## [${NEW_VERSION}] - ${DATE}\n\n"
+
+          # Categorize commits from the PR
+          FEATS=""
+          FIXES=""
+          OTHER=""
+
+          COMMITS=$(git log --format="%s" ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }})
+
+          while IFS= read -r msg; do
+            # Strip conventional commit prefix for cleaner changelog
+            CLEAN=$(echo "$msg" | sed -E 's/^[a-z]+(\([^)]+\))?!?:\s*//')
+
+            if echo "$msg" | grep -qiE "^feat"; then
+              FEATS="${FEATS}- ${CLEAN}\n"
+            elif echo "$msg" | grep -qiE "^fix"; then
+              FIXES="${FIXES}- ${CLEAN}\n"
+            elif echo "$msg" | grep -qiE "^(docs|chore|refactor|style|perf|ci|build|test)"; then
+              OTHER="${OTHER}- ${CLEAN}\n"
+            fi
+          done <<< "$COMMITS"
+
+          if [ -n "$FEATS" ]; then
+            ENTRY="${ENTRY}### Added\n${FEATS}\n"
+          fi
+          if [ -n "$FIXES" ]; then
+            ENTRY="${ENTRY}### Fixed\n${FIXES}\n"
+          fi
+          if [ -n "$OTHER" ]; then
+            ENTRY="${ENTRY}### Changed\n${OTHER}\n"
+          fi
+
+          ENTRY="${ENTRY}PR: [#${PR_NUMBER}](${PR_URL})\n"
+
+          # Prepend to CHANGELOG.md (after the header)
+          if [ -f CHANGELOG.md ]; then
+            # Insert after the first line (the title)
+            sed -i "2i\\
+          \\
+          $(echo -e "$ENTRY")" CHANGELOG.md
+          else
+            echo -e "# Changelog\n\n${ENTRY}" > CHANGELOG.md
+          fi
+
+      - name: Commit and tag
+        if: steps.bump.outputs.bump != 'none'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION CHANGELOG.md
+          git commit -m "chore: bump version to ${{ steps.new.outputs.version }}"
+          git tag "v${{ steps.new.outputs.version }}"
+          git push
+          git push --tags
+
+      - name: Create GitHub Release
+        if: steps.bump.outputs.bump != 'none'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.new.outputs.version }}"
+          name: "v${{ steps.new.outputs.version }}"
+          body: |
+            ${{ github.event.pull_request.title }}
+
+            **Bump type:** ${{ steps.bump.outputs.bump }}
+            **PR:** #${{ github.event.pull_request.number }}
+          generate_release_notes: true

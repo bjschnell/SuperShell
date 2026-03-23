@@ -63,7 +63,7 @@ Plus these tools that don't replace anything — they're just essential:
 ### Linux (Arch/CachyOS)
 
 ```bash
-git clone https://github.com/bjschnell/supershell.git
+git clone https://github.com/YOUR_USERNAME/supershell.git
 cd supershell
 chmod +x install-supershell.sh
 ./install-supershell.sh
@@ -80,7 +80,7 @@ The script will:
 ### Windows 11
 
 ```powershell
-git clone https://github.com/bjschnell/supershell.git
+git clone https://github.com/YOUR_USERNAME/supershell.git
 cd supershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\install-supershell.ps1
@@ -171,13 +171,34 @@ The Windows installer also outputs the Dracula color scheme for Windows Terminal
 
 ```
 supershell/
-├── config.fish                        # Fish shell config (Linux)
-├── Microsoft.PowerShell_profile.ps1   # PowerShell 7 profile (Windows)
-├── tools.txt                          # Full tool reference file
-├── supershell.cheat                   # Navi cheatsheet
-├── install-supershell.sh              # Linux installer (Arch/CachyOS)
-├── install-supershell.ps1             # Windows installer (winget + scoop)
+├── .github/
+│   └── workflows/
+│       └── version-bump.yml               # Auto-versioning on PR merge
+├── config.fish                            # Fish shell config (Linux)
+├── Microsoft.PowerShell_profile.ps1       # PowerShell 7 profile (Windows)
+├── tools.txt                              # Full tool reference file
+├── supershell.cheat                       # Navi cheatsheet
+├── install-supershell.sh                  # Linux installer (Arch/CachyOS)
+├── install-supershell.ps1                 # Windows installer (winget + scoop)
+├── VERSION                                # Current semver version
+├── CHANGELOG.md                           # Auto-generated changelog
+├── COMMIT_CONVENTION.md                   # Commit message guide
 └── README.md
+```
+
+## Versioning
+
+This repo uses [Semantic Versioning](https://semver.org/) with automatic version bumps driven by [Conventional Commits](https://www.conventionalcommits.org/).
+
+When a PR is merged to `main`, a GitHub Action scans the commit messages and:
+
+| Commit prefix | Version bump | Example |
+|---------------|-------------|---------|
+| `feat:` | **Minor** (1.0.0 → 1.1.0) | `feat: add tldr integration to shelp` |
+| `fix:` `docs:` `chore:` `refactor:` `style:` `perf:` `ci:` | **Patch** (1.1.0 → 1.1.1) | `fix: rgf not handling spaces in paths` |
+| `feat!:` or any `!` prefix | **Major** (1.1.1 → 2.0.0) | `feat!: rename j function to bm` |
+
+The action updates `VERSION`, prepends to `CHANGELOG.md`, creates a git tag, and publishes a GitHub Release — all automatically. See `COMMIT_CONVENTION.md` for the full guide with examples.
 ```
 
 ## Requirements
