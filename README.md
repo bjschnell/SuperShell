@@ -60,10 +60,10 @@ Plus these tools that don't replace anything — they're just essential:
 
 ## Quick start
 
-### Linux (Arch/CachyOS)
+### Linux (Arch/Hyprland)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/supershell.git
+git clone https://github.com/bjschnell/supershell.git
 cd supershell
 chmod +x install-supershell.sh
 ./install-supershell.sh
@@ -80,7 +80,7 @@ The script will:
 ### Windows 11
 
 ```powershell
-git clone https://github.com/YOUR_USERNAME/supershell.git
+git clone https://github.com/bjschnell/supershell.git
 cd supershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\install-supershell.ps1
