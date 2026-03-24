@@ -265,6 +265,21 @@ function note {
     }
 }
 
+# ─── TOOLS REFERENCE ────────────────────────────────────────────────────
+
+function tools {
+    $toolsFile = "$env:USERPROFILE\.config\supershell\tools.txt"
+    if (-not (Test-Path $toolsFile)) {
+        Write-Host "tools.txt not found at $toolsFile" -ForegroundColor Red
+        return
+    }
+    if ($args.Count -gt 0) {
+        bat $toolsFile | rg -i ($args -join ' ')
+    } else {
+        bat $toolsFile
+    }
+}
+
 # ─── CHEATSHEET ─────────────────────────────────────────────────────────
 
 function shelp {

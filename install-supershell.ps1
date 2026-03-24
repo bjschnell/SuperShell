@@ -322,6 +322,40 @@ if (-not $NoConfig) {
         Write-Warn "Expected at: $ProfileSrc"
     }
 
+    # Deploy tools.txt reference
+    $ToolsSrc = Join-Path $ScriptDir "tools.txt"
+    $ToolsDir = Join-Path $env:USERPROFILE ".config\supershell"
+    $ToolsDst = Join-Path $ToolsDir "tools.txt"
+    if (Test-Path $ToolsSrc) {
+        if (-not (Test-Path $ToolsDir)) {
+            if (-not $DryRun) {
+                New-Item -ItemType Directory -Path $ToolsDir -Force | Out-Null
+            }
+        }
+        Write-Info "Deploying tools.txt → $ToolsDst"
+        if (-not $DryRun) {
+            Copy-Item $ToolsSrc $ToolsDst -Force
+        }
+        Write-Ok "Tools reference deployed"
+    }
+
+    # Deploy navi cheatsheet
+    $NaviSrc = Join-Path $ScriptDir "supershell.cheat"
+    $NaviDir = Join-Path $env:APPDATA "navi\cheats"
+    $NaviDst = Join-Path $NaviDir "supershell.cheat"
+    if (Test-Path $NaviSrc) {
+        if (-not (Test-Path $NaviDir)) {
+            if (-not $DryRun) {
+                New-Item -ItemType Directory -Path $NaviDir -Force | Out-Null
+            }
+        }
+        Write-Info "Deploying navi cheatsheet → $NaviDst"
+        if (-not $DryRun) {
+            Copy-Item $NaviSrc $NaviDst -Force
+        }
+        Write-Ok "Navi cheatsheet deployed"
+    }
+
     # Create notes directory
     $notesDir = Join-Path $env:USERPROFILE "notes"
     if (-not (Test-Path $notesDir)) {
