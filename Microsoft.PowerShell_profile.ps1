@@ -19,17 +19,8 @@
 $env:EDITOR = "nvim"
 $env:VISUAL = "nvim"
 $env:BAT_THEME = "Dracula"
-$env:FZF_DEFAULT_COMMAND = "fd.exe --hidden --exclude .git --type f . ."
-$env:FZF_DEFAULT_OPTS = @"
---height=60% --layout=reverse --border=rounded --margin=0,1
---preview-window=right:55%:wrap
---bind=ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up
---bind=ctrl-y:execute-silent(echo {} | clip.exe)
---color=bg+:#44475a,bg:#282a36,spinner:#f1fa8c,hl:#ff79c6
---color=fg:#f8f8f2,header:#ff79c6,info:#bd93f9,pointer:#50fa7b
---color=marker:#f1fa8c,fg+:#f8f8f2,prompt:#bd93f9,hl+:#ff79c6
---color=selected-bg:#44475a
-"@
+$env:FZF_DEFAULT_COMMAND = "fd.exe --hidden --type f . ."
+$env:FZF_DEFAULT_OPTS = "--height=60% --layout=reverse --border=rounded --margin=0,1 --preview-window=right:55%:wrap --bind=ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up --bind=ctrl-y:execute-silent(echo {} | clip.exe) --color=bg+:#44475a,bg:#282a36,spinner:#f1fa8c,hl:#ff79c6 --color=fg:#f8f8f2,header:#ff79c6,info:#bd93f9,pointer:#50fa7b --color=marker:#f1fa8c,fg+:#f8f8f2,prompt:#bd93f9,hl+:#ff79c6 --color=selected-bg:#44475a"
 
 # ─── ALIASES (modern replacements) ─────────────────────────────────────
 Set-Alias -Name cat -Value bat -Option AllScope -Force
@@ -95,11 +86,11 @@ function wgr  { winget uninstall @args }
 # ─── FUNCTIONS ──────────────────────────────────────────────────────────
 
 # fd with sane defaults
-function fdf { fd.exe --hidden --exclude .git @args . . }
+function fdf { fd.exe --hidden @args . . }
 
 # fzf file picker → open in nvim
 function fzf-file {
-    $result = fd.exe --hidden --exclude .git --type f . . |
+    $result = fd.exe --hidden --type f . . |
         fzf.exe --preview "bat --color=always --style=numbers --line-range=:500 {}"
     if ($result) { nvim $result }
 }
@@ -107,7 +98,7 @@ Set-Alias -Name nf -Value fzf-file
 
 # Interactive fzf — opens files in nvim, cd's into directories
 function fzf-open {
-    $result = fd.exe --hidden --exclude .git . . |
+    $result = fd.exe --hidden . . |
         fzf.exe --preview "bat --color=always --style=numbers --line-range=:500 {}" @args
     if ($result) {
         if (Test-Path $result -PathType Leaf) {
@@ -441,7 +432,10 @@ if (Get-Module -ListAvailable -Name PSReadLine) {
 Invoke-Expression (& { (zoxide init powershell | Out-String) })
 Invoke-Expression (& { (starship init powershell | Out-String) })
 if (Get-Command atuin -ErrorAction SilentlyContinue) {
-    atuin init powershell 2>$null | Invoke-Expression
+    $atuinInit = atuin init powershell 2>$null
+    if ($atuinInit) {
+        $atuinInit | Invoke-Expression
+    }
 }
 
 # ─── DRACULA PIKACHU ───────────────────────────────────────────────────
