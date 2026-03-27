@@ -19,12 +19,12 @@
 $env:EDITOR = "nvim"
 $env:VISUAL = "nvim"
 $env:BAT_THEME = "Dracula"
-$env:FZF_DEFAULT_COMMAND = "fd --hidden --strip-cwd-prefix --exclude .git"
+$env:FZF_DEFAULT_COMMAND = "fd.exe --hidden --exclude .git --type f . ."
 $env:FZF_DEFAULT_OPTS = @"
 --height=60% --layout=reverse --border=rounded --margin=0,1
 --preview-window=right:55%:wrap
 --bind=ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up
---bind=ctrl-y:execute-silent(echo {} | Set-Clipboard)
+--bind=ctrl-y:execute-silent(echo {} | clip.exe)
 --color=bg+:#44475a,bg:#282a36,spinner:#f1fa8c,hl:#ff79c6
 --color=fg:#f8f8f2,header:#ff79c6,info:#bd93f9,pointer:#50fa7b
 --color=marker:#f1fa8c,fg+:#f8f8f2,prompt:#bd93f9,hl+:#ff79c6
@@ -95,11 +95,11 @@ function wgr  { winget uninstall @args }
 # ─── FUNCTIONS ──────────────────────────────────────────────────────────
 
 # fd with sane defaults
-function fdf { fd.exe --hidden --strip-cwd-prefix @args }
+function fdf { fd.exe --hidden --exclude .git @args . . }
 
 # fzf file picker → open in nvim
 function fzf-file {
-    $result = fd --hidden --strip-cwd-prefix --exclude .git --type f |
+    $result = fd.exe --hidden --exclude .git --type f . . |
         fzf.exe --preview "bat --color=always --style=numbers --line-range=:500 {}"
     if ($result) { nvim $result }
 }
@@ -107,7 +107,8 @@ Set-Alias -Name nf -Value fzf-file
 
 # Interactive fzf — opens files in nvim, cd's into directories
 function fzf-open {
-    $result = fzf.exe --preview "bat --color=always --style=numbers --line-range=:500 {}" @args
+    $result = fd.exe --hidden --exclude .git . . |
+        fzf.exe --preview "bat --color=always --style=numbers --line-range=:500 {}" @args
     if ($result) {
         if (Test-Path $result -PathType Leaf) {
             nvim $result
