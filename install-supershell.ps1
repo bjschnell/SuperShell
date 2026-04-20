@@ -16,14 +16,11 @@
 .PARAMETER NoConfig
     Skip deploying the PowerShell profile.
 
-.PARAMETER Minimal
-    Only install core shell tools, skip Docker Desktop and extras.
 #>
 
 param(
     [switch]$DryRun,
-    [switch]$NoConfig,
-    [switch]$Minimal
+    [switch]$NoConfig
 )
 
 $ErrorActionPreference = "Continue"
@@ -111,7 +108,7 @@ $WingetShellUtils = @(
     @{ Id = "dbrgn.tealdeer";            Name = "tldr" }
 )
 
-# ── Docker (skipped with -Minimal) ────────────────────────────────────
+# ── Docker ─────────────────────────────────────────────────────────────
 $WingetDocker = @(
     @{ Id = "Docker.DockerDesktop";      Name = "Docker Desktop" }
 )
@@ -245,9 +242,7 @@ Install-WingetGroup "Network"            $WingetNetwork
 Install-WingetGroup "File Management"    $WingetFiles
 Install-WingetGroup "Shell Utilities"    $WingetShellUtils
 
-if (-not $Minimal) {
-    Install-WingetGroup "Docker" $WingetDocker
-}
+Install-WingetGroup "Docker" $WingetDocker
 
 Install-ScoopGroup "Core Tools"  $ScoopCore
 Install-ScoopGroup "Extra Tools" $ScoopExtras
@@ -337,6 +332,31 @@ if (-not $NoConfig) {
             Copy-Item $ToolsSrc $ToolsDst -Force
         }
         Write-Ok "Tools reference deployed"
+    }
+
+    # Deploy starship config
+    $StarshipSrc = Join-Path $ScriptDir "starship.toml"
+    $StarshipDst = Join-Path $env:USERPROFILE ".config\starship.toml"
+    if (Test-Path $StarshipSrc) {
+        $StarshipDir = Split-Path -Parent $StarshipDst
+        if (-not (Test-Path $StarshipDir)) {
+            if (-not $DryRun) {
+                New-Item -ItemType Directory -Path $StarshipDir -Force | Out-Null
+            }
+        }
+        if (Test-Path $StarshipDst) {
+            $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+            $backup = "$StarshipDst.bak.$timestamp"
+            Write-Info "Backing up existing starship config → $backup"
+            if (-not $DryRun) {
+                Copy-Item $StarshipDst $backup
+            }
+        }
+        Write-Info "Deploying starship.toml → $StarshipDst"
+        if (-not $DryRun) {
+            Copy-Item $StarshipSrc $StarshipDst -Force
+        }
+        Write-Ok "Starship config deployed (Dracula theme)"
     }
 
     # Deploy navi cheatsheet

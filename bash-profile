@@ -9,9 +9,9 @@ alias ls='eza --color=always --group-directories-first --icons=always'
 # cat replacement with bat
 alias cat='bat'
 
-# tools function (adjust the path to your actual file location)
+# tools function
 tools() {
-    bat /path/to/your/tools.txt "$@"
+    bat "$HOME/.config/fish/tools.txt" "$@"
 }
 
 # fd function with default options
