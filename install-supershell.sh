@@ -10,7 +10,7 @@
 #  Options:
 #    --dry-run     Show what would be installed without installing
 #    --no-config   Skip config file deployment
-#    --minimal     Only install core shell tools, skip desktop/gaming
+#    --desktop     Also install desktop/Hyprland packages
 ###############################################################################
 
 set -euo pipefail
@@ -18,18 +18,18 @@ set -euo pipefail
 # ─── Flags ──────────────────────────────────────────────────────────────
 DRY_RUN=false
 NO_CONFIG=false
-MINIMAL=false
+DESKTOP=false
 
 for arg in "$@"; do
     case "$arg" in
         --dry-run)    DRY_RUN=true ;;
         --no-config)  NO_CONFIG=true ;;
-        --minimal)    MINIMAL=true ;;
+        --desktop)    DESKTOP=true ;;
         --help|-h)
-            echo "Usage: ./install-supershell.sh [--dry-run] [--no-config] [--minimal]"
+            echo "Usage: ./install-supershell.sh [--dry-run] [--no-config] [--desktop]"
             echo "  --dry-run    Show what would be installed"
             echo "  --no-config  Skip deploying config files"
-            echo "  --minimal    Core shell tools only (no desktop/gaming)"
+            echo "  --desktop    Also install desktop/Hyprland packages"
             exit 0
             ;;
     esac
@@ -54,7 +54,7 @@ cat << 'EOF'
 ╔══════════════════════════════════════════════════════╗
 ║  ⚡ Super Shell — Full Environment Bootstrap          ║
 ║                                                      ║
-║  Arch/CachyOS • Fish • Dracula • Hyprland            ║
+║  Arch/CachyOS • Fish • Dracula                       ║
 ╚══════════════════════════════════════════════════════╝
 EOF
 echo -e "${NC}"
@@ -130,7 +130,6 @@ PACMAN_MULTIPLEX=(
 # ── Shell utilities ─────────────────────────────────────────────────────
 PACMAN_SHELL_UTILS=(
     tldr                      # quick command examples
-    wl-clipboard              # Wayland clipboard (wl-copy/wl-paste)
 )
 
 # ── Docker ──────────────────────────────────────────────────────────────
@@ -140,8 +139,9 @@ PACMAN_DOCKER=(
     docker-buildx
 )
 
-# ── Desktop / Hyprland (skipped with --minimal) ────────────────────────
+# ── Desktop / Hyprland (only with --desktop) ───────────────────────────
 PACMAN_DESKTOP=(
+    wl-clipboard              # Wayland clipboard (wl-copy/wl-paste)
     hyprland
     hyprpaper                 # wallpaper
     hypridle                  # idle daemon
@@ -180,7 +180,7 @@ AUR_CORE=(
     bandwhich                 # per-process bandwidth monitor
 )
 
-# ── AUR packages — desktop extras (skipped with --minimal) ─────────────
+# ── AUR packages — desktop extras (only with --desktop) ────────────────
 AUR_DESKTOP=(
     hyprshot                  # screenshot utility for Hyprland
     swww                      # animated wallpaper daemon
@@ -261,12 +261,12 @@ install_aur_group() {
 }
 
 # ── Refresh package database ──
-section "Refreshing package database"
+section "Syncing package database & upgrading"
 if $DRY_RUN; then
-    warn "[dry-run] Would run: sudo pacman -Sy"
+    warn "[dry-run] Would run: sudo pacman -Syu"
 else
-    sudo pacman -Sy
-    ok "Package database updated"
+    sudo pacman -Syu --noconfirm
+    ok "System upgraded and package database synced"
 fi
 
 # ── Detect AUR helper ──
@@ -296,13 +296,13 @@ install_pacman_group "Multiplexer"        "${PACMAN_MULTIPLEX[@]}"
 install_pacman_group "Shell Utilities"    "${PACMAN_SHELL_UTILS[@]}"
 install_pacman_group "Docker"             "${PACMAN_DOCKER[@]}"
 
-if ! $MINIMAL; then
+if $DESKTOP; then
     install_pacman_group "Desktop / Hyprland" "${PACMAN_DESKTOP[@]}"
 fi
 
 install_aur_group "Core Tools"  "${AUR_CORE[@]}"
 
-if ! $MINIMAL; then
+if $DESKTOP; then
     install_aur_group "Desktop Extras" "${AUR_DESKTOP[@]}"
 fi
 
@@ -384,6 +384,25 @@ if command -v zellij &>/dev/null && [ ! -f "$ZELLIJ_DIR/config.kdl" ] && ! $DRY_
     ok "Zellij default config created"
 fi
 
+# ── Nerd Font (required for eza icons) ──
+section "Nerd Font check"
+if fc-list 2>/dev/null | grep -qi "nerd"; then
+    ok "Nerd Font detected"
+else
+    warn "No Nerd Font found — eza icons will render as broken squares"
+    info "Install one with: sudo pacman -S ttf-jetbrains-mono-nerd"
+    info "Or browse: https://www.nerdfonts.com/"
+    if ! $DRY_RUN; then
+        read -rp "Install JetBrains Mono Nerd Font now? [y/N] " font_reply
+        if [[ "$font_reply" =~ ^[Yy]$ ]]; then
+            sudo pacman -S --needed --noconfirm ttf-jetbrains-mono-nerd
+            ok "JetBrains Mono Nerd Font installed"
+        else
+            warn "Skipping font install — icons may not display correctly"
+        fi
+    fi
+fi
+
 ###############################################################################
 # CONFIG FILE DEPLOYMENT
 ###############################################################################
@@ -419,6 +438,20 @@ if ! $NO_CONFIG; then
         info "Deploying tools.txt → $TOOLS_DST"
         $DRY_RUN || cp "$TOOLS_SRC" "$TOOLS_DST"
         ok "Tools reference deployed"
+    fi
+
+    # Deploy starship config
+    STARSHIP_SRC="$SCRIPT_DIR/starship.toml"
+    STARSHIP_DST="$HOME/.config/starship.toml"
+    if [ -f "$STARSHIP_SRC" ]; then
+        if [ -f "$STARSHIP_DST" ]; then
+            BACKUP="$STARSHIP_DST.bak.$(date +%Y%m%d_%H%M%S)"
+            info "Backing up existing starship config → $BACKUP"
+            $DRY_RUN || cp "$STARSHIP_DST" "$BACKUP"
+        fi
+        info "Deploying starship.toml → $STARSHIP_DST"
+        $DRY_RUN || cp "$STARSHIP_SRC" "$STARSHIP_DST"
+        ok "Starship config deployed (Dracula theme)"
     fi
 
     # Deploy navi cheatsheet
@@ -462,15 +495,14 @@ cat << 'EOF'
 ║  │  tailscale, doggo, xh                         │    ║
 ║  ├─ Data ───────────────────────────────────────┤    ║
 ║  │  jq, yq, sd, xsv, csvlens                    │    ║
-║  └─ Desktop (unless --minimal) ─────────────────┘    ║
+║  └─ Desktop (with --desktop) ───────────────────┘    ║
 ║     hyprland, waybar, pipewire, Dracula theme        ║
 ║                                                      ║
 ║  Remaining manual steps:                             ║
 ║  1. Update bookmark paths in j function              ║
-║  2. Update tools.txt path in config.fish             ║
-║  3. Log out & back in (docker group + fish default)  ║
-║  4. Run 'tailscale up' if first time                 ║
-║  5. Run 'shelp' to see the quick reference           ║
+║  2. Log out & back in (docker group + fish default)  ║
+║  3. Run 'tailscale up' if first time                 ║
+║  4. Run 'shelp' to see the quick reference           ║
 ║                                                      ║
 ╚══════════════════════════════════════════════════════╝
 EOF

@@ -1,0 +1,67 @@
+# Starship prompt — Dracula theme
+# https://starship.rs/config/
+
+palette = "dracula"
+
+format = """
+$directory\
+$git_branch\
+$git_status\
+$docker_context\
+$python\
+$nodejs\
+$rust\
+$golang\
+$cmd_duration\
+$line_break\
+$character"""
+
+[character]
+success_symbol = "[>](bold green)"
+error_symbol = "[>](bold red)"
+
+[directory]
+style = "bold cyan"
+truncation_length = 4
+
+[git_branch]
+style = "bold purple"
+format = "[$symbol$branch(:$remote_branch)]($style) "
+
+[git_status]
+style = "bold pink"
+
+[cmd_duration]
+style = "bold yellow"
+min_time = 2_000
+format = "[$duration]($style) "
+
+[docker_context]
+style = "bold purple"
+
+[python]
+style = "bold yellow"
+format = "[$symbol$version]($style) "
+
+[nodejs]
+style = "bold green"
+format = "[$symbol$version]($style) "
+
+[rust]
+style = "bold orange"
+format = "[$symbol$version]($style) "
+
+[golang]
+style = "bold cyan"
+format = "[$symbol$version]($style) "
+
+[palettes.dracula]
+foreground = "#f8f8f2"
+background = "#282a36"
+cyan = "#8be9fd"
+green = "#50fa7b"
+orange = "#ffb86c"
+pink = "#ff79c6"
+purple = "#bd93f9"
+red = "#ff5555"
+yellow = "#f1fa8c"

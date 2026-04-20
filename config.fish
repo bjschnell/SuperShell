@@ -10,7 +10,8 @@
 #    Docker:   lazydocker
 #    Files:    yazi trash-cli
 #    Network:  xh doggo
-#    Shell:    atuin zellij navi tldr wl-clipboard
+#    Shell:    atuin zellij navi tldr
+#    Desktop:  wl-clipboard (Wayland only — installed with --desktop)
 #
 #  After installing, run:
 #    atuin init fish | source   (first time setup)
@@ -26,15 +27,22 @@ if status is-interactive
     set -gx MANROFFOPT "-c"
     set -gx BAT_THEME "Dracula"
     set -gx FZF_DEFAULT_COMMAND "fd --hidden --strip-cwd-prefix --exclude .git"
-    set -gx FZF_DEFAULT_OPTS "\
+    set -l _fzf_opts "\
         --height=60% --layout=reverse --border=rounded --margin=0,1 \
         --preview-window=right:55%:wrap \
         --bind='ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
-        --bind='ctrl-y:execute-silent(echo -n {} | wl-copy)' \
         --color=bg+:#44475a,bg:#282a36,spinner:#f1fa8c,hl:#ff79c6 \
         --color=fg:#f8f8f2,header:#ff79c6,info:#bd93f9,pointer:#50fa7b \
         --color=marker:#f1fa8c,fg+:#f8f8f2,prompt:#bd93f9,hl+:#ff79c6 \
         --color=selected-bg:#44475a"
+    if command -q wl-copy
+        set _fzf_opts "$_fzf_opts --bind='ctrl-y:execute-silent(echo -n {} | wl-copy)'"
+    else if command -q xclip
+        set _fzf_opts "$_fzf_opts --bind='ctrl-y:execute-silent(echo -n {} | xclip -selection clipboard)'"
+    else if command -q xsel
+        set _fzf_opts "$_fzf_opts --bind='ctrl-y:execute-silent(echo -n {} | xsel --clipboard)'"
+    end
+    set -gx FZF_DEFAULT_OPTS $_fzf_opts
 
     # ─── ALIASES (modern replacements) ──────────────────────────────────
     alias sudo='sudo '
@@ -64,7 +72,7 @@ if status is-interactive
     alias zjl='zellij list-sessions'
 
     # sunshine
-    alias startsunshine='/home/xdx/.config/sunshine/scripts/startup.sh'
+    alias startsunshine="$HOME/.config/sunshine/scripts/startup.sh"
 
     # ─── ABBREVIATIONS (expand inline — better than aliases for complex cmds) ─
     abbr -a gc  'git commit'
