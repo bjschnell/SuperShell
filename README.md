@@ -177,6 +177,8 @@ cache (never scans), so prompt latency stays flat. Caveats:
   from the first keystroke via history.
 - **Start Menu names are kebab-cased** ("Brave Browser" → `brave-browser`);
   App Paths entries use the exe stem (`brave`). Both are registered.
+- **Names starting with a digit can't be typed bare** — PowerShell parses
+  `7-zip` as a number. Use `run 7-zip` or `& '7-zip'` instead.
 
 ## Three layers of "help me remember"
 

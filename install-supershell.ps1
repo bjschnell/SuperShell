@@ -284,7 +284,11 @@ if (-not (Get-Module -ListAvailable -Name CompletionPredictor)) {
         Install-Module -Name CompletionPredictor -Scope CurrentUser -Force -AcceptLicense
     }
 }
-Write-Ok "CompletionPredictor module ready"
+if ($DryRun -or (Get-Module -ListAvailable -Name CompletionPredictor)) {
+    Write-Ok "CompletionPredictor module ready"
+} else {
+    Write-Warn "CompletionPredictor install failed — ghost text will be history-only"
+}
 
 # ── gsudo config: cache credentials briefly so rapid repeats don't re-prompt ──
 if (Get-Command gsudo -ErrorAction SilentlyContinue) {
