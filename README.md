@@ -152,6 +152,32 @@ The config wires all these tools together with fzf-powered functions:
 | `note edit` | Open notes in nvim |
 | `clip` / `clipfile` / `clipwd` | Clipboard integration (Wayland wl-clipboard) |
 
+### App launching & elevation (Windows)
+
+| Command | What it does |
+|---------|-------------|
+| `<appname>` | Bare-word GUI app launch (`brave` launches Brave) with fish-style ghost-text suggestions as you type |
+| `run [query]` | fzf fuzzy picker over discovered apps (`run bve` finds brave) |
+| `update-apps` | Rescan installed programs and refresh the app cache |
+| `sudo <cmd>` | Run one command elevated via gsudo — inline in the current console, no new windows |
+
+App discovery scans the App Paths registry and Start Menu shortcuts, caching
+results to `$env:LOCALAPPDATA\supershell\apps.json`. Startup only reads the
+cache (never scans), so prompt latency stays flat. Caveats:
+
+- **Restart required after `update-apps`** — bare-word launchers are generated
+  at profile load. The `run` picker sees new apps immediately.
+- **Existing commands always win** — a discovered app never shadows a CLI,
+  alias, or function that already resolves (`git`, `code`, `python`, ...).
+  If a CLI shares a name with a GUI app, launch the GUI with `run <name>`.
+- **`sudo cd` won't change your shell's directory** — gsudo elevates a child
+  process (a Windows architectural constraint, not a gsudo limitation).
+- **Ghost text for never-launched apps** needs a few characters before
+  CompletionPredictor narrows enough to suggest; frequently-used apps ghost
+  from the first keystroke via history.
+- **Start Menu names are kebab-cased** ("Brave Browser" → `brave-browser`);
+  App Paths entries use the exe stem (`brave`). Both are registered.
+
 ## Three layers of "help me remember"
 
 | Command | What it is | When to use it |
