@@ -13,6 +13,8 @@
 #    Files:    yazi
 #    Network:  xh doggo
 #    Shell:    atuin zellij navi tldr
+#    Elevation: gsudo
+#    Predictor: CompletionPredictor (PSGallery module — Install-Module)
 ###############################################################################
 
 # ─── ENVIRONMENT ────────────────────────────────────────────────────────
@@ -29,6 +31,14 @@ Set-Alias -Name lg -Value lazygit
 Set-Alias -Name ld -Value lazydocker
 Set-Alias -Name n -Value nvim
 Set-Alias -Name top -Value btop
+
+# Elevation: gsudo wraps a single command in a child elevated process,
+# streaming I/O back into THIS console. No new windows. Cache prevents
+# re-prompts within a short window. Set once: `gsudo config CacheMode auto`.
+if (Get-Command gsudo -ErrorAction SilentlyContinue) {
+    Import-Module gsudoModule -ErrorAction SilentlyContinue
+    Set-Alias -Name sudo -Value gsudo -Option AllScope -Force
+}
 
 # ls → eza (can't directly alias 'ls' in PS without removing built-in)
 Remove-Item Alias:ls -Force -ErrorAction SilentlyContinue
@@ -82,6 +92,95 @@ function wgi  { winget install @args }
 function wgs  { winget search @args }
 function wgu  { winget upgrade --all @args }
 function wgr  { winget uninstall @args }
+
+# ─── GUI APP LAUNCHER & DISCOVERY ──────────────────────────────────────
+# Discovers installed Windows GUI apps (App Paths registry + Start Menu
+# shortcuts), caches them, generates a function per app for bare-word
+# launch, and exposes a `run` fzf picker. Restart shell after `update-apps`.
+
+$script:AppCachePath = "$env:LOCALAPPDATA\supershell\apps.json"
+
+function Get-InstalledGuiApps {
+    $apps = @{}
+
+    # Source 1: App Paths registry (cleanest name -> exe mapping)
+    foreach ($root in 'HKLM:', 'HKCU:') {
+        $base = "$root\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths"
+        Get-ChildItem $base -ErrorAction SilentlyContinue | ForEach-Object {
+            $exeName = $_.PSChildName -replace '\.exe$', ''
+            $exePath = (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).'(default)'
+            if ($exePath -and (Test-Path $exePath)) {
+                $apps[$exeName.ToLower()] = $exePath
+            }
+        }
+    }
+
+    # Source 2: Start Menu .lnk shortcuts (best human-name coverage)
+    $sh = New-Object -ComObject WScript.Shell
+    $menus = @(
+        "$env:ProgramData\Microsoft\Windows\Start Menu",
+        "$env:APPDATA\Microsoft\Windows\Start Menu"
+    )
+    Get-ChildItem $menus -Recurse -Filter *.lnk -ErrorAction SilentlyContinue | ForEach-Object {
+        try {
+            $target = $sh.CreateShortcut($_.FullName).TargetPath
+            if ($target -and $target -match '\.exe$' -and (Test-Path $target)) {
+                $stem = ($_.BaseName -replace '[^a-zA-Z0-9]+', '-').ToLower().Trim('-')
+                if ($stem -and -not $apps.ContainsKey($stem)) {
+                    $apps[$stem] = $target
+                }
+            }
+        } catch { }
+    }
+
+    $apps
+}
+
+function update-apps {
+    Write-Host "⚡ Scanning installed apps..." -ForegroundColor Cyan
+    $apps = Get-InstalledGuiApps
+    $dir = Split-Path $script:AppCachePath
+    if (-not (Test-Path $dir)) {
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    }
+    $apps | ConvertTo-Json | Set-Content $script:AppCachePath -Encoding UTF8
+    Write-Host "✓ Cached $($apps.Count) apps to $script:AppCachePath" -ForegroundColor Green
+    Write-Host "  Restart shell to regenerate bare-word launchers." -ForegroundColor DarkGray
+}
+
+function Get-AppCache {
+    if (-not (Test-Path $script:AppCachePath)) { update-apps }
+    $h = @{}
+    (Get-Content $script:AppCachePath -Raw | ConvertFrom-Json).PSObject.Properties |
+        ForEach-Object { $h[$_.Name] = $_.Value }
+    $h
+}
+
+$script:AppMap = Get-AppCache
+
+# Generate one function per discovered app. COLLISION GUARD: never shadow
+# anything that already resolves (CLIs, aliases, functions). Your existing
+# commands always win.
+foreach ($appName in $script:AppMap.Keys) {
+    if (Get-Command $appName -ErrorAction Ignore) { continue }
+    $appPath = $script:AppMap[$appName]
+    $body = "Start-Process -FilePath '$appPath' -ArgumentList `$args"
+    Set-Item -Path "function:global:$appName" -Value ([ScriptBlock]::Create($body)) -Force
+}
+
+# `run` — fzf fuzzy launcher over the same manifest
+function run {
+    param([Parameter(ValueFromRemainingArguments)] $Query)
+    $names = $script:AppMap.Keys | Sort-Object
+    $sel = if ($Query) {
+        $names | fzf --query "$($Query -join ' ')" --select-1 --exit-0 --height 40% --reverse
+    } else {
+        $names | fzf --height 40% --reverse
+    }
+    if ($sel -and $script:AppMap.ContainsKey($sel)) {
+        Start-Process -FilePath $script:AppMap[$sel]
+    }
+}
 
 # ─── FUNCTIONS ──────────────────────────────────────────────────────────
 
@@ -289,6 +388,16 @@ function shelp {
 ║  ss   → fzf ssh     │  note → quick scratch notes                ║
 ║                     │  clip/clipfile/clipwd → clipboard           ║
 ║                                                                  ║
+║  LAUNCH APPS                                                     ║
+║  ───────────                                                     ║
+║  <appname>     → bare-word launch (ghosted as you type)         ║
+║  run [query]   → fzf fuzzy app picker                           ║
+║  update-apps   → rescan & cache installed programs              ║
+║                                                                  ║
+║  ELEVATION                                                       ║
+║  ─────────                                                       ║
+║  sudo <cmd>    → run one command elevated (gsudo, inline)       ║
+║                                                                  ║
 ║  GIT                                                             ║
 ║  ───                                                             ║
 ║  gs gd gds gl gla gc gca gp gpl gb gco gsw gst gsp             ║
@@ -398,7 +507,7 @@ function dns {
 
 if (Get-Module -ListAvailable -Name PSReadLine) {
     Set-PSReadLineOption -PredictionSource HistoryAndPlugin
-    Set-PSReadLineOption -PredictionViewStyle ListView
+    Set-PSReadLineOption -PredictionViewStyle InlineView
     Set-PSReadLineOption -EditMode Emacs
     Set-PSReadLineOption -BellStyle None
     Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
@@ -426,6 +535,12 @@ if (Get-Module -ListAvailable -Name PSReadLine) {
         Emphasis           = '#ff79c6'
         Default            = '#f8f8f2'
     }
+}
+
+# CompletionPredictor surfaces tab-completion results as inline predictions.
+# This is what makes typing `bra` ghost-suggest `brave` for never-run apps.
+if (Get-Module -ListAvailable -Name CompletionPredictor) {
+    Import-Module CompletionPredictor -ErrorAction SilentlyContinue
 }
 
 # ─── INIT TOOLS ─────────────────────────────────────────────────────────

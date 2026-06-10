@@ -106,6 +106,7 @@ $WingetFiles = @(
 # ── Shell utilities ────────────────────────────────────────────────────
 $WingetShellUtils = @(
     @{ Id = "dbrgn.tealdeer";            Name = "tldr" }
+    @{ Id = "gerardog.gsudo";            Name = "gsudo (sudo)" }
 )
 
 # ── Docker ─────────────────────────────────────────────────────────────
@@ -274,6 +275,23 @@ if (Get-Command atuin -ErrorAction SilentlyContinue) {
         atuin import auto 2>$null
     }
     Write-Ok "Atuin history import attempted"
+}
+
+# ── CompletionPredictor module (inline ghost-text predictions) ──
+if (-not (Get-Module -ListAvailable -Name CompletionPredictor)) {
+    Write-Info "Installing CompletionPredictor module..."
+    if (-not $DryRun) {
+        Install-Module -Name CompletionPredictor -Scope CurrentUser -Force -AcceptLicense
+    }
+}
+Write-Ok "CompletionPredictor module ready"
+
+# ── gsudo config: cache credentials briefly so rapid repeats don't re-prompt ──
+if (Get-Command gsudo -ErrorAction SilentlyContinue) {
+    if (-not $DryRun) {
+        gsudo config CacheMode auto | Out-Null
+    }
+    Write-Ok "gsudo credential cache configured (CacheMode auto)"
 }
 
 ###############################################################################
@@ -478,6 +496,8 @@ Write-Host @"
 ╚══════════════════════════════════════════════════════╝
 
 "@ -ForegroundColor Green
+
+Write-Host "→ Launch SuperShell (pwsh) and run 'update-apps' once to populate the app cache." -ForegroundColor Yellow
 
 if ($DryRun) {
     Write-Warn "This was a dry run — nothing was actually installed"
