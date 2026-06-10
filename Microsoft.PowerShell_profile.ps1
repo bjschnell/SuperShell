@@ -108,7 +108,9 @@ function Get-InstalledGuiApps {
         $base = "$root\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths"
         Get-ChildItem $base -ErrorAction SilentlyContinue | ForEach-Object {
             $exeName = $_.PSChildName -replace '\.exe$', ''
+            # Some installers store the path wrapped in literal quotes
             $exePath = (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).'(default)'
+            if ($exePath) { $exePath = $exePath.Trim('"') }
             if ($exePath -and (Test-Path $exePath)) {
                 $apps[$exeName.ToLower()] = $exePath
             }
@@ -144,16 +146,21 @@ function update-apps {
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
     }
     $apps | ConvertTo-Json | Set-Content $script:AppCachePath -Encoding UTF8
+    $script:AppMap = $apps   # `run` picks up new apps immediately
     Write-Host "✓ Cached $($apps.Count) apps to $script:AppCachePath" -ForegroundColor Green
     Write-Host "  Restart shell to regenerate bare-word launchers." -ForegroundColor DarkGray
 }
 
 function Get-AppCache {
     if (-not (Test-Path $script:AppCachePath)) { update-apps }
-    $h = @{}
-    (Get-Content $script:AppCachePath -Raw | ConvertFrom-Json).PSObject.Properties |
-        ForEach-Object { $h[$_.Name] = $_.Value }
-    $h
+    try {
+        $map = Get-Content $script:AppCachePath -Raw -ErrorAction Stop | ConvertFrom-Json -AsHashtable
+        if ($map) { $map } else { @{} }
+    } catch {
+        # A corrupt cache must not abort the rest of the profile
+        Write-Host "⚠ App cache unreadable — run update-apps to rebuild." -ForegroundColor Yellow
+        @{}
+    }
 }
 
 $script:AppMap = Get-AppCache
@@ -164,8 +171,12 @@ $script:AppMap = Get-AppCache
 foreach ($appName in $script:AppMap.Keys) {
     if (Get-Command $appName -ErrorAction Ignore) { continue }
     $appPath = $script:AppMap[$appName]
-    $body = "Start-Process -FilePath '$appPath' -ArgumentList `$args"
-    Set-Item -Path "function:global:$appName" -Value ([ScriptBlock]::Create($body)) -Force
+    # Closure, not string interpolation: paths with quotes can't break the body.
+    # Empty -ArgumentList is rejected on PS < 7.3, hence the guard.
+    Set-Item -Path "function:global:$appName" -Value {
+        if ($args) { Start-Process -FilePath $appPath -ArgumentList $args }
+        else       { Start-Process -FilePath $appPath }
+    }.GetNewClosure() -Force
 }
 
 # `run` — fzf fuzzy launcher over the same manifest
@@ -173,13 +184,19 @@ function run {
     param([Parameter(ValueFromRemainingArguments)] $Query)
     $names = $script:AppMap.Keys | Sort-Object
     $sel = if ($Query) {
-        $names | fzf --query "$($Query -join ' ')" --select-1 --exit-0 --height 40% --reverse
+        $names | fzf.exe --header="Launch app" --query "$($Query -join ' ')" --select-1 --exit-0 --height 40% --reverse
     } else {
-        $names | fzf --height 40% --reverse
+        $names | fzf.exe --header="Launch app" --height 40% --reverse
     }
     if ($sel -and $script:AppMap.ContainsKey($sel)) {
         Start-Process -FilePath $script:AppMap[$sel]
     }
+}
+
+Register-ArgumentCompleter -CommandName run -ParameterName Query -ScriptBlock {
+    param($commandName, $parameterName, $wordToComplete)
+    $script:AppMap.Keys | Where-Object { $_ -like "$wordToComplete*" } | Sort-Object |
+        ForEach-Object { [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_) }
 }
 
 # ─── FUNCTIONS ──────────────────────────────────────────────────────────
@@ -240,15 +257,16 @@ function psk {
     $proc = Get-Process | ForEach-Object { "$($_.Id)`t$($_.ProcessName)`t$($_.CPU)" } |
         fzf.exe --header="PID`tName`tCPU"
     if ($proc) {
-        $pid = ($proc -split "`t")[0]
-        Write-Host "Killing PID $pid" -ForegroundColor Yellow
-        Stop-Process -Id $pid -Force
+        # $pid is a read-only automatic variable — assignment would throw
+        $procId = ($proc -split "`t")[0]
+        Write-Host "Killing PID $procId" -ForegroundColor Yellow
+        Stop-Process -Id $procId -Force
     }
 }
 
 # Docker container shell — fzf pick a running container, exec into it
 function dsh {
-    $container = docker ps --format '{{.Names}}`t{{.Image}}`t{{.Status}}' |
+    $container = docker ps --format "{{.Names}}`t{{.Image}}`t{{.Status}}" |
         fzf.exe --header="Select container"
     if ($container) {
         $name = ($container -split "`t")[0].Trim()
@@ -258,7 +276,7 @@ function dsh {
 
 # Docker logs viewer — fzf pick any container (including stopped)
 function dlf {
-    $container = docker ps -a --format '{{.Names}}`t{{.Image}}`t{{.Status}}' |
+    $container = docker ps -a --format "{{.Names}}`t{{.Image}}`t{{.Status}}" |
         fzf.exe --header="Select container for logs"
     if ($container) {
         $name = ($container -split "`t")[0].Trim()
@@ -271,8 +289,9 @@ function ss {
     $hosts = Select-String -Path "$env:USERPROFILE\.ssh\config" -Pattern "^Host " -ErrorAction SilentlyContinue |
         ForEach-Object { ($_ -split '\s+')[1] } |
         Where-Object { $_ -notmatch '\*' }
-    $host = $hosts | fzf.exe --header="SSH to..."
-    if ($host) { ssh $host }
+    # $host is a read-only automatic variable — assignment would throw
+    $selected = $hosts | fzf.exe --header="SSH to..."
+    if ($selected) { ssh $selected }
 }
 
 # Quick file/dir size inspector
