@@ -131,6 +131,14 @@
     gbr   → show 10 most recent branches you've checked out
     gfix  → fzf pick a commit → create fixup commit for it
 
+═══ AI ASSISTANT ═════════════════════════════════════════════════════════════
+
+  claude    → AI coding agent    │ claude, cc
+              Anthropic's official CLI. Interactive agent for coding,
+              debugging, and multi-step tasks right in the terminal.
+              First run walks you through login (or: claude auth login).
+              https://github.com/anthropics/claude-code
+
 ═══ DOCKER ═══════════════════════════════════════════════════════════════════
 
   lazydocker → docker TUI        │ ld

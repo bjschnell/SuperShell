@@ -127,6 +127,31 @@ $ branch: git branch --format='%(refname:short)'
 $ pr: gh pr list --json number,title --jq '.[] | "\(.number)\t\(.title)"' 2>/dev/null
 $ mr: glab mr list 2>/dev/null | awk '/^!/{print $1}'
 
+% supershell, ai
+
+# Launch Claude Code (interactive agent, logs in on first run)
+claude
+
+# Short alias
+cc
+
+# Check auth status
+claude auth status
+
+# Log in / switch accounts
+claude auth login
+
+# Update to the latest version
+claude update
+
+# Run a one-off prompt non-interactively
+claude -p "<prompt>"
+
+# Diagnose install/config issues
+claude doctor
+
+$ prompt: echo ""
+
 % supershell, docker
 
 # Lazydocker TUI

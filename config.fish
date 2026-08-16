@@ -7,6 +7,7 @@
 #    System:   btop bottom dust duf procs bandwhich
 #    Data:     jq yq sd xsv csvlens
 #    Git:      lazygit delta git-absorb gh glab
+#    AI:       Claude Code CLI (claude) — installed via https://claude.ai/install.sh
 #    Docker:   lazydocker
 #    Files:    yazi trash-cli
 #    Network:  xh doggo
@@ -21,6 +22,11 @@
 if status is-interactive
 
     # ─── ENVIRONMENT ────────────────────────────────────────────────────
+    # Claude Code's native installer places the binary here — most systems
+    # add it to PATH automatically, but this is a safety net.
+    if test -d "$HOME/.local/bin"
+        fish_add_path -a "$HOME/.local/bin"
+    end
     set -gx EDITOR nvim
     set -gx VISUAL nvim
     set -gx MANPAGER "sh -c 'col -bx | bat -l man -p'"  # colorized man pages via bat
@@ -70,6 +76,9 @@ if status is-interactive
     alias zj='zellij'
     alias zja='zellij attach'
     alias zjl='zellij list-sessions'
+    if command -q claude
+        alias cc='claude'
+    end
 
     # sunshine
     alias startsunshine="$HOME/.config/sunshine/scripts/startup.sh"
@@ -299,6 +308,10 @@ if status is-interactive
 ║  gs gd gds gl gla gc gca gp gpl gb gco gsw gst gsp             ║
 ║  lg → lazygit TUI                                                ║
 ║  gh <cmd> → GitHub CLI  │  glab <cmd> → GitLab CLI              ║
+║                                                                  ║
+║  AI                                                              ║
+║  ──                                                              ║
+║  claude / cc → Claude Code CLI                                  ║
 ║                                                                  ║
 ║  DOCKER                                                          ║
 ║  ──────                                                          ║

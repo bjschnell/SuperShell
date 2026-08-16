@@ -111,6 +111,11 @@ $WingetShellUtils = @(
     @{ Id = "gerardog.gsudo";            Name = "gsudo (sudo)" }
 )
 
+# ── AI tooling ─────────────────────────────────────────────────────────
+$WingetAI = @(
+    @{ Id = "Anthropic.ClaudeCode";      Name = "Claude Code CLI" }
+)
+
 # ── Docker ─────────────────────────────────────────────────────────────
 $WingetDocker = @(
     @{ Id = "Docker.DockerDesktop";      Name = "Docker Desktop" }
@@ -244,6 +249,7 @@ Install-WingetGroup "Git Tooling"        $WingetGit
 Install-WingetGroup "Network"            $WingetNetwork
 Install-WingetGroup "File Management"    $WingetFiles
 Install-WingetGroup "Shell Utilities"    $WingetShellUtils
+Install-WingetGroup "AI Tools"           $WingetAI
 
 Install-WingetGroup "Docker" $WingetDocker
 
@@ -315,6 +321,14 @@ if (Get-Command glab -ErrorAction SilentlyContinue) {
         Write-Ok "glab already authenticated"
     } else {
         Write-Warn "glab installed but not authenticated — run 'glab auth login'"
+    }
+}
+if (Get-Command claude -ErrorAction SilentlyContinue) {
+    claude auth status 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "Claude Code already authenticated"
+    } else {
+        Write-Warn "Claude Code installed but not logged in — run 'claude' and follow the login prompt"
     }
 }
 
@@ -502,6 +516,8 @@ Write-Host @"
 ║  │  btop, btm, dust, duf, procs                  │    ║
 ║  ├─ Git ────────────────────────────────────────┤    ║
 ║  │  lazygit, delta, git-absorb, gh, glab         │    ║
+║  ├─ AI ──────────────────────────────────────────┤    ║
+║  │  Claude Code CLI                                │    ║
 ║  ├─ Docker ─────────────────────────────────────┤    ║
 ║  │  Docker Desktop, lazydocker                   │    ║
 ║  ├─ Network ────────────────────────────────────┤    ║
@@ -517,7 +533,8 @@ Write-Host @"
 ║  5. Run 'tailscale up' if first time                 ║
 ║  6. Run 'gh auth login' / 'glab auth login' if not   ║
 ║     already authenticated                             ║
-║  7. Run 'shelp' to see the quick reference           ║
+║  7. Run 'claude' and log in if first time             ║
+║  8. Run 'shelp' to see the quick reference           ║
 ║                                                      ║
 ╚══════════════════════════════════════════════════════╝
 

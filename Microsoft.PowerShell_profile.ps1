@@ -9,6 +9,7 @@
 #    System:   btop bottom dust duf procs
 #    Data:     jq yq sd xsv
 #    Git:      lazygit delta git-absorb gh glab
+#    AI:       Claude Code CLI (claude)
 #    Docker:   lazydocker
 #    Files:    yazi
 #    Network:  xh doggo
@@ -31,6 +32,9 @@ Set-Alias -Name lg -Value lazygit
 Set-Alias -Name ld -Value lazydocker
 Set-Alias -Name n -Value nvim
 Set-Alias -Name top -Value btop
+if (Get-Command claude -ErrorAction SilentlyContinue) {
+    Set-Alias -Name cc -Value claude
+}
 
 # Elevation: gsudo wraps a single command in a child elevated process,
 # streaming I/O back into THIS console. No new windows. Cache prevents
@@ -423,6 +427,10 @@ function shelp {
 ║  lg → lazygit TUI  │  gbf → fzf branch switch                   ║
 ║  gbr → recent branches │ gfix → fzf fixup commit                ║
 ║  gh <cmd> → GitHub CLI  │  glab <cmd> → GitLab CLI              ║
+║                                                                  ║
+║  AI                                                              ║
+║  ──                                                              ║
+║  claude / cc → Claude Code CLI                                  ║
 ║                                                                  ║
 ║  DOCKER                                                          ║
 ║  ──────                                                          ║

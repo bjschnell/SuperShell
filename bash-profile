@@ -63,3 +63,8 @@ eval "$(zoxide init bash)"
 command -v gh &>/dev/null && eval "$(gh completion -s bash)"
 command -v glab &>/dev/null && eval "$(glab completion -s bash)"
 
+# Claude Code's native installer places the binary here — safety net in
+# case it's not already on PATH.
+[ -d "$HOME/.local/bin" ] && [[ ":$PATH:" != *":$HOME/.local/bin:"* ]] && export PATH="$HOME/.local/bin:$PATH"
+command -v claude &>/dev/null && alias cc='claude'
+

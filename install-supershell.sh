@@ -308,6 +308,24 @@ if $DESKTOP; then
     install_aur_group "Desktop Extras" "${AUR_DESKTOP[@]}"
 fi
 
+# ── Claude Code CLI (official installer — auto-updates, not AUR-lagged) ──
+section "Claude Code CLI"
+if command -v claude &>/dev/null; then
+    ok "Claude Code CLI already installed"
+else
+    info "Installing Claude Code CLI..."
+    if $DRY_RUN; then
+        warn "[dry-run] Would run: curl -fsSL https://claude.ai/install.sh | bash"
+    else
+        curl -fsSL https://claude.ai/install.sh | bash
+        if [ -x "$HOME/.local/bin/claude" ] || command -v claude &>/dev/null; then
+            ok "Claude Code CLI installed"
+        else
+            err "Claude Code CLI install may have failed — check output above"
+        fi
+    fi
+fi
+
 ###############################################################################
 # POST-INSTALL CONFIGURATION
 ###############################################################################
@@ -391,6 +409,13 @@ if command -v glab &>/dev/null; then
         ok "glab already authenticated"
     else
         warn "glab installed but not authenticated — run 'glab auth login'"
+    fi
+fi
+if command -v claude &>/dev/null; then
+    if claude auth status &>/dev/null; then
+        ok "Claude Code already authenticated"
+    else
+        warn "Claude Code installed but not logged in — run 'claude' and follow the login prompt"
     fi
 fi
 
@@ -507,6 +532,8 @@ cat << 'EOF'
 ║  │  btop, btm, dust, duf, procs, bandwhich      │    ║
 ║  ├─ Git ────────────────────────────────────────┤    ║
 ║  │  lazygit, delta, git-absorb, gh, glab         │    ║
+║  ├─ AI ──────────────────────────────────────────┤    ║
+║  │  Claude Code CLI                                │    ║
 ║  ├─ Docker ─────────────────────────────────────┤    ║
 ║  │  docker, compose, buildx, lazydocker          │    ║
 ║  ├─ Network ────────────────────────────────────┤    ║
@@ -522,7 +549,8 @@ cat << 'EOF'
 ║  3. Run 'tailscale up' if first time                 ║
 ║  4. Run 'gh auth login' / 'glab auth login' if not   ║
 ║     already authenticated                             ║
-║  5. Run 'shelp' to see the quick reference           ║
+║  5. Run 'claude' and log in if first time             ║
+║  6. Run 'shelp' to see the quick reference           ║
 ║                                                      ║
 ╚══════════════════════════════════════════════════════╝
 EOF

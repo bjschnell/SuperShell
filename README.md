@@ -55,6 +55,7 @@ Plus these tools that don't replace anything — they're just essential:
 | [git-absorb](https://github.com/tummychow/git-absorb) | Auto-creates fixup commits for the right parent |
 | [gh](https://github.com/cli/cli) | GitHub CLI — PRs, issues, releases from the terminal |
 | [glab](https://gitlab.com/gitlab-org/cli) | GitLab CLI — MRs, issues, pipelines from the terminal |
+| [claude](https://github.com/anthropics/claude-code) | Claude Code — the default coding agent this whole repo assumes |
 | [bandwhich](https://github.com/imsnif/bandwhich) | Per-process bandwidth usage in real time |
 | [jq](https://github.com/jqlang/jq) / [yq](https://github.com/mikefarah/yq) | JSON and YAML processing |
 | [xsv](https://github.com/BurntSushi/xsv) / [csvlens](https://github.com/YS-L/csvlens) | CSV toolkit and interactive viewer |
