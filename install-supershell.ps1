@@ -90,6 +90,8 @@ $WingetData = @(
 $WingetGit = @(
     @{ Id = "dandavison.delta";          Name = "delta (git pager)" }
     @{ Id = "JesseDuffield.lazygit";     Name = "lazygit" }
+    @{ Id = "GitHub.cli";                Name = "gh (GitHub CLI)" }
+    @{ Id = "GLab.GLab";                 Name = "glab (GitLab CLI)" }
 )
 
 # ── Network ────────────────────────────────────────────────────────────
@@ -298,6 +300,24 @@ if (Get-Command gsudo -ErrorAction SilentlyContinue) {
     Write-Ok "gsudo credential cache configured (CacheMode auto)"
 }
 
+# ── gh / glab auth status ──
+if (Get-Command gh -ErrorAction SilentlyContinue) {
+    gh auth status 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "gh already authenticated"
+    } else {
+        Write-Warn "gh installed but not authenticated — run 'gh auth login'"
+    }
+}
+if (Get-Command glab -ErrorAction SilentlyContinue) {
+    glab auth status 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "glab already authenticated"
+    } else {
+        Write-Warn "glab installed but not authenticated — run 'glab auth login'"
+    }
+}
+
 ###############################################################################
 # PROFILE DEPLOYMENT
 ###############################################################################
@@ -481,7 +501,7 @@ Write-Host @"
 ║  ├─ System ─────────────────────────────────────┤    ║
 ║  │  btop, btm, dust, duf, procs                  │    ║
 ║  ├─ Git ────────────────────────────────────────┤    ║
-║  │  lazygit, delta, git-absorb                   │    ║
+║  │  lazygit, delta, git-absorb, gh, glab         │    ║
 ║  ├─ Docker ─────────────────────────────────────┤    ║
 ║  │  Docker Desktop, lazydocker                   │    ║
 ║  ├─ Network ────────────────────────────────────┤    ║
@@ -495,7 +515,9 @@ Write-Host @"
 ║  3. Update bookmark paths in j function              ║
 ║  4. Restart terminal for profile to take effect       ║
 ║  5. Run 'tailscale up' if first time                 ║
-║  6. Run 'shelp' to see the quick reference           ║
+║  6. Run 'gh auth login' / 'glab auth login' if not   ║
+║     already authenticated                             ║
+║  7. Run 'shelp' to see the quick reference           ║
 ║                                                      ║
 ╚══════════════════════════════════════════════════════╝
 

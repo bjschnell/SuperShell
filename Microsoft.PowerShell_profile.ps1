@@ -8,7 +8,7 @@
 #    Core:     eza bat fd fzf zoxide starship ripgrep
 #    System:   btop bottom dust duf procs
 #    Data:     jq yq sd xsv
-#    Git:      lazygit delta git-absorb
+#    Git:      lazygit delta git-absorb gh glab
 #    Docker:   lazydocker
 #    Files:    yazi
 #    Network:  xh doggo
@@ -422,6 +422,7 @@ function shelp {
 ║  gs gd gds gl gla gc gca gp gpl gb gco gsw gst gsp             ║
 ║  lg → lazygit TUI  │  gbf → fzf branch switch                   ║
 ║  gbr → recent branches │ gfix → fzf fixup commit                ║
+║  gh <cmd> → GitHub CLI  │  glab <cmd> → GitLab CLI              ║
 ║                                                                  ║
 ║  DOCKER                                                          ║
 ║  ──────                                                          ║
@@ -570,6 +571,12 @@ if (Get-Command atuin -ErrorAction SilentlyContinue) {
     if ($atuinInit) {
         $atuinInit | Invoke-Expression
     }
+}
+if (Get-Command gh -ErrorAction SilentlyContinue) {
+    Invoke-Expression (& { (gh completion -s powershell | Out-String) })
+}
+if (Get-Command glab -ErrorAction SilentlyContinue) {
+    Invoke-Expression (& { (glab completion -s powershell | Out-String) })
 }
 
 # ─── DRACULA PIKACHU ───────────────────────────────────────────────────

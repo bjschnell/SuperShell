@@ -87,7 +87,45 @@ git absorb
 # Rebase with autosquash (apply fixups)
 git rebase -i --autosquash <branch>
 
+# GitHub CLI — one-time auth
+gh auth login
+
+# GitHub CLI — check auth status
+gh auth status
+
+# Create a pull request
+gh pr create
+
+# List pull requests
+gh pr list
+
+# Check out a PR locally
+gh pr checkout <pr>
+
+# View a pull request in the browser
+gh pr view --web
+
+# GitLab CLI — one-time auth
+glab auth login
+
+# GitLab CLI — check auth status
+glab auth status
+
+# Create a merge request
+glab mr create
+
+# List merge requests
+glab mr list
+
+# Check out an MR locally
+glab mr checkout <mr>
+
+# View a merge request in the browser
+glab mr view --web
+
 $ branch: git branch --format='%(refname:short)'
+$ pr: gh pr list --json number,title --jq '.[] | "\(.number)\t\(.title)"' 2>/dev/null
+$ mr: glab mr list 2>/dev/null | awk '/^!/{print $1}'
 
 % supershell, docker
 

@@ -115,6 +115,16 @@
               parent. Run git rebase -i --autosquash to apply.
               https://github.com/tummychow/git-absorb
 
+  gh        → GitHub CLI         │ gh
+              PRs, issues, releases, workflow runs from the terminal.
+              One-time setup: gh auth login
+              https://github.com/cli/cli
+
+  glab      → GitLab CLI         │ glab
+              MRs, issues, pipelines from the terminal — GitLab's gh.
+              One-time setup: glab auth login
+              https://gitlab.com/gitlab-org/cli
+
   Custom functions:
     gs/gd/gds/gl/gla/gc/gca/gp/gpl/gb/gco/gsw/gst/gsp  (abbreviations)
     gbf   → fzf branch switcher (sorted by recent commit)

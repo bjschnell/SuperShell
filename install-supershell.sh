@@ -108,6 +108,8 @@ PACMAN_DATA=(
 PACMAN_GIT=(
     git-delta                 # syntax-highlighted diffs
     lazygit                   # git TUI
+    github-cli                # gh — GitHub PRs/issues/releases from the terminal
+    glab                      # GitLab CLI — MRs/issues/pipelines
 )
 
 # ── Network & DNS ───────────────────────────────────────────────────────
@@ -376,6 +378,22 @@ if command -v atuin &>/dev/null && ! $DRY_RUN; then
     ok "Atuin history import attempted"
 fi
 
+# ── gh / glab auth status ──
+if command -v gh &>/dev/null; then
+    if gh auth status &>/dev/null; then
+        ok "gh already authenticated"
+    else
+        warn "gh installed but not authenticated — run 'gh auth login'"
+    fi
+fi
+if command -v glab &>/dev/null; then
+    if glab auth status &>/dev/null; then
+        ok "glab already authenticated"
+    else
+        warn "glab installed but not authenticated — run 'glab auth login'"
+    fi
+fi
+
 # ── Zellij default config ──
 ZELLIJ_DIR="$HOME/.config/zellij"
 if command -v zellij &>/dev/null && [ ! -f "$ZELLIJ_DIR/config.kdl" ] && ! $DRY_RUN; then
@@ -488,7 +506,7 @@ cat << 'EOF'
 ║  ├─ System ─────────────────────────────────────┤    ║
 ║  │  btop, btm, dust, duf, procs, bandwhich      │    ║
 ║  ├─ Git ────────────────────────────────────────┤    ║
-║  │  lazygit, delta, git-absorb                   │    ║
+║  │  lazygit, delta, git-absorb, gh, glab         │    ║
 ║  ├─ Docker ─────────────────────────────────────┤    ║
 ║  │  docker, compose, buildx, lazydocker          │    ║
 ║  ├─ Network ────────────────────────────────────┤    ║
@@ -502,7 +520,9 @@ cat << 'EOF'
 ║  1. Update bookmark paths in j function              ║
 ║  2. Log out & back in (docker group + fish default)  ║
 ║  3. Run 'tailscale up' if first time                 ║
-║  4. Run 'shelp' to see the quick reference           ║
+║  4. Run 'gh auth login' / 'glab auth login' if not   ║
+║     already authenticated                             ║
+║  5. Run 'shelp' to see the quick reference           ║
 ║                                                      ║
 ╚══════════════════════════════════════════════════════╝
 EOF

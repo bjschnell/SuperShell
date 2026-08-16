@@ -6,7 +6,7 @@
 #    Core:     eza bat fd fzf zoxide starship ripgrep
 #    System:   btop bottom dust duf procs bandwhich
 #    Data:     jq yq sd xsv csvlens
-#    Git:      lazygit delta git-absorb
+#    Git:      lazygit delta git-absorb gh glab
 #    Docker:   lazydocker
 #    Files:    yazi trash-cli
 #    Network:  xh doggo
@@ -298,6 +298,7 @@ if status is-interactive
 ║  ─────────────────────────────────                               ║
 ║  gs gd gds gl gla gc gca gp gpl gb gco gsw gst gsp             ║
 ║  lg → lazygit TUI                                                ║
+║  gh <cmd> → GitHub CLI  │  glab <cmd> → GitLab CLI              ║
 ║                                                                  ║
 ║  DOCKER                                                          ║
 ║  ──────                                                          ║
@@ -404,6 +405,12 @@ if status is-interactive
     # Make sure fish knows about these tools for tab completion
     if command -q docker
         docker completion fish 2>/dev/null | source
+    end
+    if command -q gh
+        gh completion -s fish 2>/dev/null | source
+    end
+    if command -q glab
+        glab completion -s fish 2>/dev/null | source
     end
 
     # ─── INIT TOOLS ─────────────────────────────────────────────────────

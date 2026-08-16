@@ -59,3 +59,7 @@ eval "$(starship init bash)"
 # Initialize zoxide
 eval "$(zoxide init bash)"
 
+# GitHub / GitLab CLI completions (gh auth login / glab auth login for one-time setup)
+command -v gh &>/dev/null && eval "$(gh completion -s bash)"
+command -v glab &>/dev/null && eval "$(glab completion -s bash)"
+
