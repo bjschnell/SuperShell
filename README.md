@@ -207,6 +207,7 @@ supershell/
 │       └── version-bump.yml               # Auto-versioning on PR merge
 ├── config.fish                            # Fish shell config (Linux)
 ├── Microsoft.PowerShell_profile.ps1       # PowerShell 7 profile (Windows)
+├── bash-profile                           # Bash companion — source it manually
 ├── tools.txt                              # Full tool reference file
 ├── supershell.cheat                       # Navi cheatsheet
 ├── install-supershell.sh                  # Linux installer (Arch/CachyOS)

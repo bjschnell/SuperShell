@@ -435,14 +435,19 @@ else
     warn "No Nerd Font found — eza icons will render as broken squares"
     info "Install one with: sudo pacman -S ttf-jetbrains-mono-nerd"
     info "Or browse: https://www.nerdfonts.com/"
-    if ! $DRY_RUN; then
-        read -rp "Install JetBrains Mono Nerd Font now? [y/N] " font_reply
+    # `set -e` + a non-TTY stdin (curl | bash) made a failed read abort the
+    # whole script here, before any config was deployed.
+    if ! $DRY_RUN && [ -t 0 ]; then
+        font_reply=""
+        read -rp "Install JetBrains Mono Nerd Font now? [y/N] " font_reply || true
         if [[ "$font_reply" =~ ^[Yy]$ ]]; then
             sudo pacman -S --needed --noconfirm ttf-jetbrains-mono-nerd
             ok "JetBrains Mono Nerd Font installed"
         else
             warn "Skipping font install — icons may not display correctly"
         fi
+    elif ! $DRY_RUN; then
+        warn "Non-interactive stdin — skipping the font prompt"
     fi
 fi
 
@@ -481,6 +486,21 @@ if ! $NO_CONFIG; then
         info "Deploying tools.txt → $TOOLS_DST"
         $DRY_RUN || cp "$TOOLS_SRC" "$TOOLS_DST"
         ok "Tools reference deployed"
+    fi
+
+    # Deploy the bash companion profile. Not sourced automatically — editing
+    # someone's .bashrc behind their back is worse than a one-line hint.
+    BASH_SRC="$SCRIPT_DIR/bash-profile"
+    BASH_DST="$HOME/.config/supershell/bash-profile"
+    if [ -f "$BASH_SRC" ]; then
+        $DRY_RUN || mkdir -p "$HOME/.config/supershell"
+        info "Deploying bash-profile → $BASH_DST"
+        $DRY_RUN || cp "$BASH_SRC" "$BASH_DST"
+        ok "Bash profile deployed"
+        if ! grep -qs "supershell/bash-profile" "$HOME/.bashrc"; then
+            info "To use it in bash, add to ~/.bashrc:"
+            info "  source \"\$HOME/.config/supershell/bash-profile\""
+        fi
     fi
 
     # Deploy starship config

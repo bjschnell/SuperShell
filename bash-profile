@@ -9,9 +9,19 @@ alias ls='eza --color=always --group-directories-first --icons=always'
 # cat replacement with bat
 alias cat='bat'
 
-# tools function
+# tools function — args filter the reference, they are not extra files
 tools() {
-    bat "$HOME/.config/fish/tools.txt" "$@"
+    local f="$HOME/.config/fish/tools.txt"
+    [ -f "$f" ] || f="$HOME/.config/supershell/tools.txt"
+    if [ ! -f "$f" ]; then
+        echo "tools.txt not found — run the installer" >&2
+        return 1
+    fi
+    if [ $# -gt 0 ]; then
+        bat "$f" | rg -i "$*"
+    else
+        bat "$f"
+    fi
 }
 
 # fd function with default options
@@ -19,21 +29,20 @@ fd() {
     command fd --hidden --strip-cwd-prefix "$@"
 }
 
-# fzf function with bat integration
-fzf() {
+# Fuzzy find → open in nvim / cd. Deliberately NOT named `fzf`: shadowing the
+# binary forces a bat preview onto every pipeline and onto tools that shell out
+# to fzf. Matches fzf_open (fish) and fzf-open (PowerShell).
+fzf_open() {
     local result
     result=$(command fzf --preview 'bat --color=always --style=numbers --line-range=:500 {}' "$@")
-    
+
     if [ -n "$result" ]; then
-        # If result is a file, open it in your editor or navigate to its directory
         if [ -f "$result" ]; then
-            # Uncomment one of these based on your preference:
             nvim "$result"
-            # cd "$(dirname "$result")"  # Navigate to file's directory
         elif [ -d "$result" ]; then
-            cd "$result"  # Navigate to directory
+            cd "$result" || return 1
         else
-            echo "$result"  # Just output the result
+            echo "$result"
         fi
     fi
 }

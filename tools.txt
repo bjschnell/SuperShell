@@ -18,7 +18,7 @@
               Respects .gitignore, regex by default, --hidden enabled.
               https://github.com/sharkdp/fd
 
-  fzf       → fuzzy finder       │ fzf, fzf-open, nf (fzf → nvim)
+  fzf       → fuzzy finder       │ fzf-open (PS) / fzf_open (fish, bash), nf
               Ctrl+R for history (via atuin), Ctrl+Y copies selection.
               Bat preview built into all fzf functions.
               https://github.com/junegunn/fzf

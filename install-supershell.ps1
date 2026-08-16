@@ -6,9 +6,14 @@
     Installs everything needed to recreate Brady's shell environment on Windows.
     Uses winget (primary) and scoop (for tools not in winget).
 
-    Run from an ELEVATED PowerShell 7 prompt:
+    Run from a NON-ELEVATED PowerShell 7 prompt:
         Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
         .\install-supershell.ps1
+
+    winget prompts for elevation per package as needed. Scoop refuses to
+    install or run as administrator, so an elevated session silently loses
+    every scoop package (dust, duf, procs, sd, lazydocker, navi, doggo,
+    atuin, ...). The script detects elevation and tells you what it skipped.
 
 .PARAMETER DryRun
     Show what would be installed without installing.
@@ -177,6 +182,12 @@ function Install-WingetGroup {
     }
 }
 
+# Scoop refuses to run under an elevated session, so detect it once and report
+# honestly instead of letting every scoop install fail silently.
+$IsElevated = ([Security.Principal.WindowsPrincipal] `
+    [Security.Principal.WindowsIdentity]::GetCurrent()
+).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
 function Install-ScoopGroup {
     param(
         [string]$GroupName,
@@ -184,6 +195,13 @@ function Install-ScoopGroup {
     )
 
     Write-Section "$GroupName (Scoop)"
+
+    if ($IsElevated) {
+        Write-Warn "Running elevated — scoop cannot install here. Skipping ${GroupName}:"
+        Write-Warn "  $($Packages -join ', ')"
+        Write-Warn "  Re-run this script from a NON-elevated pwsh to install them."
+        return
+    }
 
     if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
         Write-Warn "Scoop not installed — skipping $GroupName"
@@ -220,7 +238,11 @@ if (Get-Command winget -ErrorAction SilentlyContinue) {
     exit 1
 }
 
-if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+if ($IsElevated) {
+    Write-Warn "Elevated session detected — the scoop bootstrap and all scoop"
+    Write-Warn "packages will be skipped (scoop blocks admin installs by design)."
+    Write-Warn "Re-run from a normal, non-elevated pwsh to get them."
+} elseif (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
     Write-Info "Installing Scoop..."
     if (-not $DryRun) {
         Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
@@ -231,7 +253,7 @@ if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
 }
 
 # Add scoop extras bucket (many tools live here)
-if (Get-Command scoop -ErrorAction SilentlyContinue) {
+if (-not $IsElevated -and (Get-Command scoop -ErrorAction SilentlyContinue)) {
     Write-Info "Ensuring scoop buckets..."
     if (-not $DryRun) {
         scoop bucket add extras 2>$null

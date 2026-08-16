@@ -25,7 +25,30 @@ $env:BAT_THEME = "Dracula"
 $env:FZF_DEFAULT_COMMAND = "fd.exe --hidden --type f . ."
 $env:FZF_DEFAULT_OPTS = "--height=60% --layout=reverse --border=rounded --margin=0,1 --preview-window=right:55%:wrap --bind=ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up --bind=ctrl-y:execute-silent(echo {} | clip.exe) --color=bg+:#44475a,bg:#282a36,spinner:#f1fa8c,hl:#ff79c6 --color=fg:#f8f8f2,header:#ff79c6,info:#bd93f9,pointer:#50fa7b --color=marker:#f1fa8c,fg+:#f8f8f2,prompt:#bd93f9,hl+:#ff79c6 --color=selected-bg:#44475a"
 
+# ─── SHELL MODE ─────────────────────────────────────────────────────────
+# `pwsh -Command` / `-File` loads this profile too, so everything below this
+# point — cosmetics, cmdlet-shadowing aliases, PSReadLine, the app scan —
+# would leak into scripted runs and corrupt their output. Environment
+# variables above are safe and intentionally set for both modes.
+# (config.fish gets this for free with `status is-interactive`.)
+function Test-InteractiveShell {
+    if (-not [Environment]::UserInteractive) { return $false }
+    if ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected) { return $false }
+    foreach ($a in [Environment]::GetCommandLineArgs()) {
+        if ($a -match '^-(?:noni|c$|com|f$|file|e$|ec$|encoded)') { return $false }
+    }
+    return $true
+}
+if (-not (Test-InteractiveShell)) { return }
+
 # ─── ALIASES (modern replacements) ─────────────────────────────────────
+# PowerShell resolves ALIASES BEFORE FUNCTIONS, so these built-ins would win
+# over the same-named shortcuts defined below (gl → Get-Location instead of
+# git log, etc). Drop them first so our definitions are reachable.
+foreach ($builtin in 'ls', 'gc', 'gp', 'gl') {
+    Remove-Item "Alias:$builtin" -Force -ErrorAction SilentlyContinue
+}
+
 Set-Alias -Name cat -Value bat -Option AllScope -Force
 Set-Alias -Name grep -Value rg -Option AllScope -Force
 Set-Alias -Name lg -Value lazygit
@@ -44,8 +67,7 @@ if (Get-Command gsudo -ErrorAction SilentlyContinue) {
     Set-Alias -Name sudo -Value gsudo -Option AllScope -Force
 }
 
-# ls → eza (can't directly alias 'ls' in PS without removing built-in)
-Remove-Item Alias:ls -Force -ErrorAction SilentlyContinue
+# ls → eza (built-in alias already removed above)
 function ls  { eza --color=always --group-directories-first --icons=always @args }
 function ll  { eza -alh --color=always --group-directories-first --icons=always --git @args }
 function lt  { eza --tree --level=2 --color=always --group-directories-first --icons=always @args }
@@ -205,8 +227,10 @@ Register-ArgumentCompleter -CommandName run -ParameterName Query -ScriptBlock {
 
 # ─── FUNCTIONS ──────────────────────────────────────────────────────────
 
-# fd with sane defaults
-function fdf { fd.exe --hidden @args . . }
+# fd with sane defaults. No trailing path args: fd's grammar is
+# `fd [OPTIONS] [pattern] [path]...`, so `fdf foo . .` searched "." twice and
+# printed every hit twice. --strip-cwd-prefix also rejects explicit paths.
+function fdf { fd.exe --hidden --strip-cwd-prefix @args }
 
 # fzf file picker → open in nvim
 function fzf-file {
@@ -251,8 +275,13 @@ function rgf {
             --preview "bat --color=always --highlight-line {2} {1}" `
             --preview-window "right:55%:+{2}-10"
     if ($result) {
-        $parts = $result -split ':'
-        nvim "+$($parts[1])" $parts[0]
+        # Non-greedy up to the FIRST ":<digits>:" — a plain -split ':' turns
+        # C:\src\a.ps1:12:hit into file "C", line "\src\a.ps1".
+        # (The fzf preview above still assumes rg's default relative paths;
+        # it degrades to an empty pane if you pass rgf an absolute path.)
+        if ($result -match '^(.*?):(\d+):') {
+            nvim "+$($Matches[2])" $Matches[1]
+        }
     }
 }
 
@@ -290,8 +319,10 @@ function dlf {
 
 # SSH host picker from ~/.ssh/config
 function ss {
+    # Split $_.Line, not $_ — stringifying a MatchInfo yields "path:line:text",
+    # so a space anywhere in the config's path shifts every field.
     $hosts = Select-String -Path "$env:USERPROFILE\.ssh\config" -Pattern "^Host " -ErrorAction SilentlyContinue |
-        ForEach-Object { ($_ -split '\s+')[1] } |
+        ForEach-Object { ($_.Line.Trim() -split '\s+')[1] } |
         Where-Object { $_ -notmatch '\*' }
     # $host is a read-only automatic variable — assignment would throw
     $selected = $hosts | fzf.exe --header="SSH to..."
@@ -350,6 +381,11 @@ function note {
 
     switch ($args[0]) {
         "add" {
+            # $args[1..0] would reverse the range and yield "add" as the body
+            if ($args.Length -lt 2) {
+                Write-Host "Usage: note add <text>" -ForegroundColor Yellow
+                return
+            }
             $text = $args[1..($args.Length-1)] -join ' '
             $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm"
             Add-Content $notefile "- [$timestamp] $text"
@@ -572,7 +608,6 @@ if (Get-Module -ListAvailable -Name CompletionPredictor) {
 }
 
 # ─── INIT TOOLS ─────────────────────────────────────────────────────────
-Invoke-Expression (& { (zoxide init powershell | Out-String) })
 Invoke-Expression (& { (starship init powershell | Out-String) })
 if (Get-Command atuin -ErrorAction SilentlyContinue) {
     $atuinInit = atuin init powershell 2>$null
@@ -586,6 +621,11 @@ if (Get-Command gh -ErrorAction SilentlyContinue) {
 if (Get-Command glab -ErrorAction SilentlyContinue) {
     Invoke-Expression (& { (glab completion -s powershell | Out-String) })
 }
+
+# zoxide MUST init last: its directory-tracking hook wraps whatever `prompt`
+# exists at init time. Starship defines `function global:prompt` outright, so
+# initializing zoxide first leaves the hook orphaned and the database empty.
+Invoke-Expression (& { (zoxide init powershell | Out-String) })
 
 # ─── DRACULA PIKACHU ───────────────────────────────────────────────────
 function Show-Pikachu {

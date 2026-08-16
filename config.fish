@@ -41,12 +41,22 @@ if status is-interactive
         --color=fg:#f8f8f2,header:#ff79c6,info:#bd93f9,pointer:#50fa7b \
         --color=marker:#f1fa8c,fg+:#f8f8f2,prompt:#bd93f9,hl+:#ff79c6 \
         --color=selected-bg:#44475a"
+    # ─── CLIPBOARD BACKEND ──────────────────────────────────────────────
+    # Detected once here and reused by the fzf ctrl-y bind and the clip*
+    # functions below. wl-clipboard only ships with --desktop, so an X11 or
+    # headless install has to fall back or say so plainly.
     if command -q wl-copy
-        set _fzf_opts "$_fzf_opts --bind='ctrl-y:execute-silent(echo -n {} | wl-copy)'"
+        set -g __clip_copy  wl-copy
+        set -g __clip_paste wl-paste
     else if command -q xclip
-        set _fzf_opts "$_fzf_opts --bind='ctrl-y:execute-silent(echo -n {} | xclip -selection clipboard)'"
+        set -g __clip_copy  xclip -selection clipboard
+        set -g __clip_paste xclip -selection clipboard -o
     else if command -q xsel
-        set _fzf_opts "$_fzf_opts --bind='ctrl-y:execute-silent(echo -n {} | xsel --clipboard)'"
+        set -g __clip_copy  xsel --clipboard --input
+        set -g __clip_paste xsel --clipboard --output
+    end
+    if set -q __clip_copy
+        set _fzf_opts "$_fzf_opts --bind='ctrl-y:execute-silent(echo -n {} | $__clip_copy)'"
     end
     set -gx FZF_DEFAULT_OPTS $_fzf_opts
 
@@ -132,8 +142,12 @@ if status is-interactive
             command fzf --preview 'bat --color=always --style=numbers --line-range=:500 {}' $argv
     end
 
-    # Interactive fzf — opens files in nvim, cd's into directories
-    function fzf --wraps fzf
+    # Interactive picker — opens files in nvim, cd's into directories.
+    # Deliberately NOT named `fzf`: shadowing the binary forced a bat preview
+    # onto every pipeline (`git branch | fzf` previewed branch names as files)
+    # and onto tools that shell out to fzf, like zoxide's `zi`.
+    # Mirrors fzf-open in the PowerShell profile.
+    function fzf_open --description "Fuzzy find → open in nvim / cd"
         set result (command fzf --preview 'bat --color=always --style=numbers --line-range=:500 {}' $argv)
         if test -n "$result"
             if test -f "$result"
@@ -219,35 +233,50 @@ if status is-interactive
         sudo ss -tlnp | tail -n +2 | sort -t: -k2 -n
     end
 
-    # ─── CLIPBOARD INTEGRATION (Wayland/wl-clipboard) ──────────────────
+    # ─── CLIPBOARD INTEGRATION (Wayland, X11, or nothing) ──────────────
+    # Backend picked at startup — see __clip_copy / __clip_paste above.
+
+    function __clip_check
+        if not set -q __clip_copy
+            echo "No clipboard tool found. Install wl-clipboard (Wayland) or xclip/xsel (X11)." >&2
+            return 1
+        end
+        return 0
+    end
 
     # Pipe anything to clipboard
     function clip --description "Copy stdin or file to clipboard"
+        __clip_check; or return 1
         if test (count $argv) -gt 0
-            cat $argv | wl-copy
+            # `command cat`: the cat alias is bat, which would reformat the copy
+            command cat $argv | $__clip_copy
         else
-            wl-copy
+            $__clip_copy
         end
     end
 
     # Paste clipboard to stdout
     function clippaste --description "Paste clipboard to stdout"
-        wl-paste
+        __clip_check; or return 1
+        $__clip_paste
     end
 
     # Copy file contents to clipboard
     function clipfile --description "Copy file contents to clipboard"
+        __clip_check; or return 1
         if test -f "$argv[1]"
-            wl-copy < $argv[1]
+            $__clip_copy < $argv[1]
             echo "Copied $argv[1] to clipboard"
         else
             echo "File not found: $argv[1]"
+            return 1
         end
     end
 
     # Copy current path to clipboard
     function clipwd --description "Copy current directory to clipboard"
-        pwd | wl-copy
+        __clip_check; or return 1
+        pwd | $__clip_copy
         echo "Copied: $(pwd)"
     end
 
@@ -259,6 +288,10 @@ if status is-interactive
         mkdir -p ~/notes
         switch "$argv[1]"
             case add
+                if test (count $argv) -lt 2
+                    echo "Usage: note add <text>"
+                    return 1
+                end
                 echo "- [$(date '+%Y-%m-%d %H:%M')] $argv[2..]" >> $notefile
                 echo "📝 Note added"
             case edit
@@ -297,7 +330,7 @@ if status is-interactive
 ║                                                                  ║
 ║  NAVIGATION         │  FILES & SEARCH                            ║
 ║  ──────────         │  ─────────────                             ║
-║  y    → yazi (cd)   │  fzf  → fuzzy find → open                 ║
+║  y    → yazi (cd)   │  fzf_open → fuzzy find → open             ║
 ║  z    → zoxide jump │  rgf  → grep → fzf → nvim at line         ║
 ║  nf   → fzf → nvim  │  big  → show biggest files/dirs           ║
 ║  ss   → fzf ssh     │  note → quick scratch notes                ║
