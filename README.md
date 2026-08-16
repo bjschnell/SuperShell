@@ -66,9 +66,8 @@ Plus these tools that don't replace anything — they're just essential:
 ### Linux (Arch/Hyprland)
 
 ```bash
-git clone https://github.com/bjschnell/supershell.git
-cd supershell
-chmod +x install-supershell.sh
+git clone https://github.com/bjschnell/SuperShell.git
+cd SuperShell
 ./install-supershell.sh
 ```
 
@@ -83,8 +82,8 @@ The script will:
 ### Windows 11
 
 ```powershell
-git clone https://github.com/bjschnell/supershell.git
-cd supershell
+git clone https://github.com/bjschnell/SuperShell.git
+cd SuperShell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\install-supershell.ps1
 ```
