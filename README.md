@@ -91,15 +91,42 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 Uses winget + scoop. Deploys an equivalent PowerShell 7 profile with all the same aliases, functions, and shortcuts adapted for Windows.
 
-### Flags
-
-Both installers support:
+### Installer flags
 
 | Flag | Linux | Windows | Effect |
 |------|-------|---------|--------|
 | Dry run | `--dry-run` | `-DryRun` | Preview what would be installed |
-| Minimal | `--minimal` | `-Minimal` | Shell tools only, skip desktop/Docker |
 | No config | `--no-config` | `-NoConfig` | Skip deploying config files |
+| Desktop | `--desktop` | — | Also install Hyprland/desktop packages (Linux only) |
+
+## Updating
+
+Run the installer **once** per machine. After that, pick up config changes with
+the updater — it pulls, deploys, and stamps the version, and never touches
+system state (no `pacman -Syu`, no `chsh`, no services, no package installs).
+
+```bash
+cd supershell && ./update-supershell.sh      # Linux
+```
+
+```powershell
+cd supershell; .\update-supershell.ps1       # Windows
+```
+
+| Flag | Linux | Windows | Effect |
+|------|-------|---------|--------|
+| No pull | `--no-pull` | `-NoPull` | Deploy the working tree as-is |
+| Dry run | `--dry-run` | `-DryRun` | Show what would change, write nothing |
+| Force | `--force` | `-Force` | Pull despite uncommitted changes |
+
+It backs up a config only when the content actually differs, so repeat runs
+don't litter `.bak` files. Each run writes `~/.config/supershell/VERSION` with
+the version, commit, branch, and timestamp, so any machine can report what it's
+running. It also checks that the tools the configs expect are on `PATH` and
+names the missing ones — **new packages still come from the installer**, since
+the updater deliberately installs nothing.
+
+Restart your shell afterwards (`exec fish` on Linux, a new terminal on Windows).
 
 ## Custom functions
 
@@ -212,6 +239,8 @@ supershell/
 ├── supershell.cheat                       # Navi cheatsheet
 ├── install-supershell.sh                  # Linux installer (Arch/CachyOS)
 ├── install-supershell.ps1                 # Windows installer (winget + scoop)
+├── update-supershell.sh                   # Linux updater (configs only)
+├── update-supershell.ps1                  # Windows updater (configs only)
 ├── VERSION                                # Current semver version
 ├── CHANGELOG.md                           # Auto-generated changelog
 ├── COMMIT_CONVENTION.md                   # Commit message guide
