@@ -610,9 +610,14 @@ if (Get-Module -ListAvailable -Name CompletionPredictor) {
 # ─── INIT TOOLS ─────────────────────────────────────────────────────────
 Invoke-Expression (& { (starship init powershell | Out-String) })
 if (Get-Command atuin -ErrorAction SilentlyContinue) {
-    $atuinInit = atuin init powershell 2>$null
+    # `atuin init powershell` emits a 240-line module as a string ARRAY.
+    # Piping that array to Invoke-Expression binds each line as a separate
+    # command, so blank lines throw "empty string" and every multi-line block
+    # throws "Missing closing '}'" — and atuin never actually initializes.
+    # Out-String first, exactly as atuin's own usage comment instructs.
+    $atuinInit = atuin init powershell 2>$null | Out-String
     if ($atuinInit) {
-        $atuinInit | Invoke-Expression
+        Invoke-Expression $atuinInit
     }
 }
 if (Get-Command gh -ErrorAction SilentlyContinue) {
