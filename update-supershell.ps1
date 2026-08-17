@@ -148,7 +148,18 @@ function Deploy-File {
 }
 
 Write-Section "Deploying configs"
-Deploy-File (Join-Path $ScriptDir "Microsoft.PowerShell_profile.ps1") $PROFILE
+
+# Deliberately not $PROFILE: if this updater is run from Windows PowerShell 5.1
+# rather than pwsh, $PROFILE points at Documents\WindowsPowerShell\ and we would
+# quietly install a PowerShell 7 profile into the 5.1 slot. Ask pwsh directly.
+$Pwsh7Profile = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "PowerShell\Microsoft.PowerShell_profile.ps1"
+$pwshExe = Get-Command pwsh -ErrorAction SilentlyContinue
+if ($pwshExe) {
+    $p = & $pwshExe.Source -NoProfile -NonInteractive -Command '$PROFILE.CurrentUserCurrentHost' 2>$null
+    if ($LASTEXITCODE -eq 0 -and $p) { $Pwsh7Profile = $p.Trim() }
+}
+
+Deploy-File (Join-Path $ScriptDir "Microsoft.PowerShell_profile.ps1") $Pwsh7Profile
 Deploy-File (Join-Path $ScriptDir "tools.txt")        (Join-Path $env:USERPROFILE ".config\supershell\tools.txt")
 Deploy-File (Join-Path $ScriptDir "starship.toml")    (Join-Path $env:USERPROFILE ".config\starship.toml")
 Deploy-File (Join-Path $ScriptDir "supershell.cheat") (Join-Path $env:APPDATA   "navi\cheats\supershell.cheat")

@@ -40,6 +40,33 @@ function Write-Warn    { param($msg) Write-Host "[WARN] $msg" -ForegroundColor Y
 function Write-Err     { param($msg) Write-Host "[ERR]  $msg" -ForegroundColor Red }
 function Write-Section { param($msg) Write-Host "`n── $msg ──" -ForegroundColor Cyan }
 
+# Installers write PATH to the registry, but this already-running process keeps
+# the copy it inherited at launch. Without this, anything installed above is
+# invisible to the rest of the script (gsudo.exe was the one that bit us).
+function Update-SessionPath {
+    $machine = [Environment]::GetEnvironmentVariable("Path", "Machine")
+    $user    = [Environment]::GetEnvironmentVariable("Path", "User")
+    $merged  = (@($machine, $user) | Where-Object { $_ }) -join ";"
+    # Never replace a good PATH with an empty one: the Machine/User scopes are
+    # Windows-registry concepts and both come back null anywhere else.
+    if ($merged) { $env:PATH = $merged }
+}
+
+# This script normally runs under Windows PowerShell 5.1 — on a fresh box that
+# is the only shell there is, since installing pwsh 7 is our job. That makes
+# $PROFILE the *5.1* profile path (Documents\WindowsPowerShell\), which is not
+# where our PowerShell 7 profile belongs. Ask pwsh itself, so OneDrive-redirected
+# Documents folders resolve correctly too.
+function Get-Pwsh7ProfilePath {
+    $pwshExe = Get-Command pwsh -ErrorAction SilentlyContinue
+    if ($pwshExe) {
+        $p = & $pwshExe.Source -NoProfile -NonInteractive -Command '$PROFILE.CurrentUserCurrentHost' 2>$null
+        if ($LASTEXITCODE -eq 0 -and $p) { return $p.Trim() }
+    }
+    # Fallback: pwsh not on PATH yet (or a dry run before it is installed).
+    Join-Path ([Environment]::GetFolderPath("MyDocuments")) "PowerShell\Microsoft.PowerShell_profile.ps1"
+}
+
 Write-Host @"
 
 ╔══════════════════════════════════════════════════════╗
@@ -68,8 +95,11 @@ $WingetFoundation = @(
     @{ Id = "Microsoft.WindowsTerminal";  Name = "Windows Terminal" }
     @{ Id = "Git.Git";                    Name = "Git" }
     @{ Id = "Neovim.Neovim";             Name = "Neovim" }
-    @{ Id = "OpenSSH.OpenSSH";           Name = "OpenSSH" }
 )
+# NOTE: no OpenSSH entry. Windows 11 ships the OpenSSH *client* as an enabled-by-
+# default optional feature, so there is nothing to install; the only thing winget
+# carries is Microsoft.OpenSSH.Preview, a beta of the server. We verify ssh.exe
+# below instead of installing anything.
 
 # ── Core shell modernization ───────────────────────────────────────────
 $WingetShellCore = @(
@@ -85,7 +115,7 @@ $WingetShellCore = @(
 # ── System monitoring ──────────────────────────────────────────────────
 $WingetSystem = @(
     @{ Id = "aristocratos.btop4win";     Name = "btop" }
-    @{ Id = "ClementTsang.bottom";       Name = "bottom (btm)" }
+    @{ Id = "Clement.bottom";            Name = "bottom (btm)" }
 )
 
 # ── Data wrangling ─────────────────────────────────────────────────────
@@ -285,7 +315,19 @@ Install-ScoopGroup "Extra Tools" $ScoopExtras
 # POST-INSTALL CONFIGURATION
 ###############################################################################
 
+# Everything below looks tools up with Get-Command, so pick up the PATH entries
+# that winget and scoop just wrote to the registry.
+Update-SessionPath
+
 Write-Section "Post-install setup"
+
+# ── OpenSSH client (built into Windows 11, not a winget package) ──
+if (Get-Command ssh.exe -CommandType Application -ErrorAction SilentlyContinue) {
+    Write-Ok "OpenSSH client present"
+} else {
+    Write-Warn "ssh.exe not found — enable it with:"
+    Write-Warn "  Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0   (needs admin)"
+}
 
 # ── Git delta config ──
 if (Get-Command delta -ErrorAction SilentlyContinue) {
@@ -311,24 +353,50 @@ if (Get-Command atuin -ErrorAction SilentlyContinue) {
 }
 
 # ── CompletionPredictor module (inline ghost-text predictions) ──
-if (-not (Get-Module -ListAvailable -Name CompletionPredictor)) {
-    Write-Info "Installing CompletionPredictor module..."
-    if (-not $DryRun) {
-        Install-Module -Name CompletionPredictor -Scope CurrentUser -Force -AcceptLicense
-    }
-}
-if ($DryRun -or (Get-Module -ListAvailable -Name CompletionPredictor)) {
-    Write-Ok "CompletionPredictor module ready"
+# Must be installed BY pwsh 7, not by this shell. Two reasons: CurrentUser scope
+# resolves to a different module directory per host (Documents\WindowsPowerShell
+# \Modules vs Documents\PowerShell\Modules), so a 5.1-side install is invisible
+# to the shell that actually needs it; and 5.1 ships PowerShellGet 1.0.0.1, which
+# has no -AcceptLicense parameter and fails outright.
+$pwshExe = Get-Command pwsh -ErrorAction SilentlyContinue
+if (-not $pwshExe) {
+    Write-Warn "pwsh not found — skipping CompletionPredictor (ghost text will be history-only)"
 } else {
-    Write-Warn "CompletionPredictor install failed — ghost text will be history-only"
+    $haveCP = & $pwshExe.Source -NoProfile -NonInteractive -Command `
+        'if (Get-Module -ListAvailable -Name CompletionPredictor) { "yes" } else { "no" }' 2>$null
+    if ($haveCP -eq "no") {
+        Write-Info "Installing CompletionPredictor module (via pwsh 7)..."
+        if (-not $DryRun) {
+            & $pwshExe.Source -NoProfile -NonInteractive -Command `
+                'Install-Module -Name CompletionPredictor -Scope CurrentUser -Force -AcceptLicense -ErrorAction Stop' 2>&1 |
+                ForEach-Object { Write-Host "       $_" -ForegroundColor DarkGray }
+            $haveCP = & $pwshExe.Source -NoProfile -NonInteractive -Command `
+                'if (Get-Module -ListAvailable -Name CompletionPredictor) { "yes" } else { "no" }' 2>$null
+        }
+    }
+    if ($DryRun -or $haveCP -eq "yes") {
+        Write-Ok "CompletionPredictor module ready"
+    } else {
+        Write-Warn "CompletionPredictor install failed — ghost text will be history-only"
+    }
 }
 
 # ── gsudo config: cache credentials briefly so rapid repeats don't re-prompt ──
-if (Get-Command gsudo -ErrorAction SilentlyContinue) {
-    if (-not $DryRun) {
-        gsudo config CacheMode auto | Out-Null
-    }
+# Resolve gsudo.exe specifically: `Get-Command gsudo` also matches the gsudoModule
+# wrapper function that the installer drops in Program Files, and that wrapper
+# happily reports itself as present while the .exe it shells out to is missing.
+$gsudoExe = Get-Command gsudo.exe -CommandType Application -ErrorAction SilentlyContinue
+if (-not $gsudoExe) {
+    Write-Warn "gsudo.exe not on PATH — skipping credential cache config"
+} elseif ($DryRun) {
     Write-Ok "gsudo credential cache configured (CacheMode auto)"
+} else {
+    & $gsudoExe.Source config CacheMode auto 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "gsudo credential cache configured (CacheMode auto)"
+    } else {
+        Write-Warn "gsudo config failed (exit $LASTEXITCODE) — run 'gsudo config CacheMode auto' by hand"
+    }
 }
 
 # ── gh / glab auth status ──
@@ -366,8 +434,10 @@ if (-not $NoConfig) {
 
     $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
     $ProfileSrc = Join-Path $ScriptDir "Microsoft.PowerShell_profile.ps1"
-    $ProfileDir = Split-Path -Parent $PROFILE
-    $ProfileDst = $PROFILE
+    # NOT $PROFILE — that is whichever host is running this script, which on a
+    # fresh box is Windows PowerShell 5.1. See Get-Pwsh7ProfilePath.
+    $ProfileDst = Get-Pwsh7ProfilePath
+    $ProfileDir = Split-Path -Parent $ProfileDst
 
     if (Test-Path $ProfileSrc) {
         # Ensure profile directory exists
