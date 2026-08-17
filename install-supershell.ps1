@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     ⚡ Super Shell — Full Environment Bootstrap for Windows 11
 
@@ -6,7 +6,10 @@
     Installs everything needed to recreate Brady's shell environment on Windows.
     Uses winget (primary) and scoop (for tools not in winget).
 
-    Run from a NON-ELEVATED PowerShell 7 prompt:
+    Run from a NON-ELEVATED prompt. On a fresh machine that means Windows
+    PowerShell 5.1, since PowerShell 7 is one of the things this script
+    installs. This file is saved with a UTF-8 BOM so 5.1 decodes it as
+    UTF-8 rather than the ANSI codepage — do not strip the BOM.
         Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
         .\install-supershell.ps1
 

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     ⚡ Super Shell — Updater (Windows)
 

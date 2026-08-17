@@ -1,4 +1,4 @@
-###############################################################################
+﻿###############################################################################
 #  ⚡ SUPER SHELL — PowerShell 7 Profile (Windows)
 #  Brady's hyper-optimized CLI environment — Windows mirror
 #
