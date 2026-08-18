@@ -249,7 +249,7 @@ supershell/
 ├── .github/
 │   └── workflows/
 │       └── version-bump.yml               # Auto-versioning on PR merge
-├── config.fish                            # Fish shell config (Linux)
+├── config.fish                            # Fish shell config (Linux + macOS)
 ├── Microsoft.PowerShell_profile.ps1       # PowerShell 7 profile (Windows)
 ├── bash-profile                           # Bash companion — source it manually
 ├── tools.txt                              # Full tool reference file
@@ -265,6 +265,28 @@ supershell/
 ├── COMMIT_CONVENTION.md                   # Commit message guide
 └── README.md
 ```
+
+## Contributing
+
+**Keep all three platforms in sync.** The installers and updaters come as a set —
+one per OS — and a change to one is a change to all of them:
+
+| Concern | Linux | macOS | Windows |
+|---------|-------|-------|---------|
+| Installer | `install-supershell.sh` | `install-supershell-macos.sh` | `install-supershell.ps1` |
+| Updater | `update-supershell.sh` | `update-supershell-macos.sh` | `update-supershell.ps1` |
+| Shell config | `config.fish` | `config.fish` | `Microsoft.PowerShell_profile.ps1` |
+
+When you touch a script — a new flag, a new deployed file, a changed prompt,
+a reworded message, a new tool in the install list — mirror it across **all
+three** versions in the same PR. The updaters in particular are meant to be
+byte-for-byte identical apart from platform specifics (package manager, clipboard
+backend, `trash-put` vs `trash`, path conventions). `config.fish` is shared by
+Linux and macOS, so guard OS-specific bits at runtime (`test (uname) = Darwin`)
+rather than forking the file.
+
+If a change genuinely applies to only one OS, say why in the commit message so
+the divergence is intentional and reviewable.
 
 ## Versioning
 
