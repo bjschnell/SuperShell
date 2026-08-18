@@ -263,6 +263,7 @@ supershell/
 ├── VERSION                                # Current semver version
 ├── CHANGELOG.md                           # Auto-generated changelog
 ├── COMMIT_CONVENTION.md                   # Commit message guide
+├── CLAUDE.md                              # Guidance for AI agents (cross-platform parity)
 └── README.md
 ```
 
