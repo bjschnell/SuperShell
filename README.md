@@ -1,6 +1,6 @@
 # ⚡ Super Shell
 
-A fully portable, opinionated CLI environment built around modern Rust/Go replacements for classic Unix tools. One script bootstraps the entire setup on a fresh **Arch/CachyOS** or **Windows 11** machine — shell config, tools, theme, cheatsheets, and all.
+A fully portable, opinionated CLI environment built around modern Rust/Go replacements for classic Unix tools. One script bootstraps the entire setup on a fresh **Arch/CachyOS**, **macOS**, or **Windows 11** machine — shell config, tools, theme, cheatsheets, and all.
 
 ```
 ⣿⣿⣿⣿⣿⣿⣿⠿⣛⣩⣴⣾⡿⠃⢀⣠⣾⣿⣿⣿⣿⣿⣿
@@ -37,7 +37,7 @@ Every classic Unix tool gets a modern, faster, more ergonomic replacement — an
 | `sed` | [sd](https://github.com/chmln/sd) | Normal regex syntax, no backslash hell |
 | `curl` | [xh](https://github.com/ducaale/xh) | HTTPie-style ergonomics, auto JSON |
 | `dig` | [doggo](https://github.com/mr-karan/doggo) | DNS lookups with color |
-| `rm` | [trash-cli](https://github.com/andreafrancia/trash-cli) | Moves to trash, recoverable (Linux only) |
+| `rm` | [trash-cli](https://github.com/andreafrancia/trash-cli) (Linux) / [trash](https://github.com/ali-rafiei/trash) (macOS) | Moves to trash, recoverable |
 
 Plus these tools that don't replace anything — they're just essential:
 
@@ -79,6 +79,22 @@ The script will:
 - Deploy `config.fish`, `tools.txt`, and the navi cheatsheet to the right locations
 - Back up any existing fish config with a timestamp
 
+### macOS
+
+```bash
+git clone https://github.com/bjschnell/SuperShell.git
+cd SuperShell
+./install-supershell-macos.sh
+```
+
+Uses [Homebrew](https://brew.sh) (auto-installed if missing). Installs every tool
+via `brew`, sets fish as your default shell, configures git delta with the Dracula
+theme, installs JetBrains Mono Nerd Font, and deploys the same `config.fish`,
+`tools.txt`, starship config, and navi cheatsheet. The Fish config is
+cross-platform — the same `config.fish` detects macOS at runtime and swaps in
+`pbcopy`/`pbpaste`, `lsof`, and `brew` shortcuts. Docker and Tailscale are left
+out (use Docker Desktop/colima and the Tailscale app instead).
+
 ### Windows 11
 
 ```powershell
@@ -92,8 +108,8 @@ Uses winget + scoop. Deploys an equivalent PowerShell 7 profile with all the sam
 
 ### Installer flags
 
-| Flag | Linux | Windows | Effect |
-|------|-------|---------|--------|
+| Flag | Linux / macOS | Windows | Effect |
+|------|---------------|---------|--------|
 | Dry run | `--dry-run` | `-DryRun` | Preview what would be installed |
 | No config | `--no-config` | `-NoConfig` | Skip deploying config files |
 | Desktop | `--desktop` | — | Also install Hyprland/desktop packages (Linux only) |
@@ -102,18 +118,20 @@ Uses winget + scoop. Deploys an equivalent PowerShell 7 profile with all the sam
 
 Run the installer **once** per machine. After that, pick up config changes with
 the updater — it pulls, deploys, and stamps the version, and never touches
-system state (no `pacman -Syu`, no `chsh`, no services, no package installs).
+system state (no `pacman -Syu` / `brew upgrade`, no `chsh`, no services, no
+package installs).
 
 ```bash
-cd supershell && ./update-supershell.sh      # Linux
+cd SuperShell && ./update-supershell.sh        # Linux
+cd SuperShell && ./update-supershell-macos.sh  # macOS
 ```
 
 ```powershell
-cd supershell; .\update-supershell.ps1       # Windows
+cd SuperShell; .\update-supershell.ps1         # Windows
 ```
 
-| Flag | Linux | Windows | Effect |
-|------|-------|---------|--------|
+| Flag | Linux / macOS | Windows | Effect |
+|------|---------------|---------|--------|
 | No pull | `--no-pull` | `-NoPull` | Deploy the working tree as-is |
 | Dry run | `--dry-run` | `-DryRun` | Show what would change, write nothing |
 | Force | `--force` | `-Force` | Pull despite uncommitted changes |
@@ -125,7 +143,7 @@ running. It also checks that the tools the configs expect are on `PATH` and
 names the missing ones — **new packages still come from the installer**, since
 the updater deliberately installs nothing.
 
-Restart your shell afterwards (`exec fish` on Linux, a new terminal on Windows).
+Restart your shell afterwards (`exec fish` on Linux/macOS, a new terminal on Windows).
 
 ## Custom functions
 
@@ -237,8 +255,10 @@ supershell/
 ├── tools.txt                              # Full tool reference file
 ├── supershell.cheat                       # Navi cheatsheet
 ├── install-supershell.sh                  # Linux installer (Arch/CachyOS)
+├── install-supershell-macos.sh            # macOS installer (Homebrew)
 ├── install-supershell.ps1                 # Windows installer (winget + scoop)
 ├── update-supershell.sh                   # Linux updater (configs only)
+├── update-supershell-macos.sh             # macOS updater (configs only)
 ├── update-supershell.ps1                  # Windows updater (configs only)
 ├── VERSION                                # Current semver version
 ├── CHANGELOG.md                           # Auto-generated changelog
@@ -264,6 +284,8 @@ The action updates `VERSION`, prepends to `CHANGELOG.md`, creates a git tag, and
 ## Requirements
 
 **Linux:** Arch-based distro with `pacman`. AUR helper (`yay` or `paru`) needed for some packages — the script warns if missing.
+
+**macOS:** [Homebrew](https://brew.sh) — the installer offers to install it if missing. Works on Apple Silicon and Intel.
 
 **Windows:** Windows 11 with `winget` (pre-installed). Scoop is auto-installed if missing.
 
