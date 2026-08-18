@@ -123,7 +123,15 @@ function wgr  { winget uninstall @args }
 # Discovers installed Windows GUI apps (App Paths registry + Start Menu
 # shortcuts), caches them, generates a function per app for bare-word
 # launch, and exposes a `run` fzf picker. Restart shell after `update-apps`.
+#
+# PERF: the collision guard used to run at every shell start, and
+# `Get-Command <name>` on a name that does NOT resolve is brutally slow —
+# it walks all of PATH once per PATHEXT extension AND triggers module
+# auto-load discovery across PSModulePath. ~120ms each, ~6.5s for a typical
+# ~55-app cache. That check now runs once inside update-apps and the cache
+# stores only the survivors, so startup is a pure in-memory pass.
 
+$script:AppCacheVersion = 2
 $script:AppCachePath = "$env:LOCALAPPDATA\supershell\apps.json"
 
 function Get-InstalledGuiApps {
@@ -167,21 +175,44 @@ function Get-InstalledGuiApps {
 function update-apps {
     Write-Host "⚡ Scanning installed apps..." -ForegroundColor Cyan
     $apps = Get-InstalledGuiApps
+
+    # COLLISION GUARD: drop any app whose name already resolves to a real
+    # command (CLI on PATH, cmdlet, module export) so a generated launcher can
+    # never shadow it. Your existing commands always win. This is the slow pass
+    # described above — it lives here, once, instead of on every shell start.
+    Write-Host "  Checking $($apps.Count) names against existing commands..." -ForegroundColor DarkGray
+    $free = @{}
+    foreach ($name in $apps.Keys) {
+        if (-not (Get-Command $name -ErrorAction Ignore)) { $free[$name] = $apps[$name] }
+    }
+
     $dir = Split-Path $script:AppCachePath
     if (-not (Test-Path $dir)) {
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
     }
-    $apps | ConvertTo-Json | Set-Content $script:AppCachePath -Encoding UTF8
-    $script:AppMap = $apps   # `run` picks up new apps immediately
-    Write-Host "✓ Cached $($apps.Count) apps to $script:AppCachePath" -ForegroundColor Green
+    [pscustomobject]@{ version = $script:AppCacheVersion; apps = $free } |
+        ConvertTo-Json -Depth 3 | Set-Content $script:AppCachePath -Encoding UTF8
+    $script:AppMap = $free   # `run` picks up new apps immediately
+    Write-Host "✓ Cached $($free.Count) apps to $script:AppCachePath" -ForegroundColor Green
+    Write-Host "  ($($apps.Count - $free.Count) skipped — name already taken by a real command)" -ForegroundColor DarkGray
     Write-Host "  Restart shell to regenerate bare-word launchers." -ForegroundColor DarkGray
 }
 
 function Get-AppCache {
-    if (-not (Test-Path $script:AppCachePath)) { update-apps }
+    if (-not (Test-Path $script:AppCachePath)) {
+        update-apps
+        return $script:AppMap
+    }
     try {
-        $map = Get-Content $script:AppCachePath -Raw -ErrorAction Stop | ConvertFrom-Json -AsHashtable
-        if ($map) { $map } else { @{} }
+        $cache = Get-Content $script:AppCachePath -Raw -ErrorAction Stop | ConvertFrom-Json -AsHashtable
+        # v1 caches were a bare name->path map and were never collision-filtered,
+        # so they can't be trusted to generate launchers from. Rebuild once.
+        if ($cache.version -ne $script:AppCacheVersion) {
+            Write-Host "⚡ App cache is from an older layout — rebuilding once." -ForegroundColor Cyan
+            update-apps
+            return $script:AppMap
+        }
+        if ($cache.apps) { $cache.apps } else { @{} }
     } catch {
         # A corrupt cache must not abort the rest of the profile
         Write-Host "⚠ App cache unreadable — run update-apps to rebuild." -ForegroundColor Yellow
@@ -190,20 +221,6 @@ function Get-AppCache {
 }
 
 $script:AppMap = Get-AppCache
-
-# Generate one function per discovered app. COLLISION GUARD: never shadow
-# anything that already resolves (CLIs, aliases, functions). Your existing
-# commands always win.
-foreach ($appName in $script:AppMap.Keys) {
-    if (Get-Command $appName -ErrorAction Ignore) { continue }
-    $appPath = $script:AppMap[$appName]
-    # Closure, not string interpolation: paths with quotes can't break the body.
-    # Empty -ArgumentList is rejected on PS < 7.3, hence the guard.
-    Set-Item -Path "function:global:$appName" -Value {
-        if ($args) { Start-Process -FilePath $appPath -ArgumentList $args }
-        else       { Start-Process -FilePath $appPath }
-    }.GetNewClosure() -Force
-}
 
 # `run` — fzf fuzzy launcher over the same manifest
 function run {
@@ -569,7 +586,10 @@ function dns {
 
 # ─── PSReadLine (tab completion & history enhancements) ─────────────────
 
-if (Get-Module -ListAvailable -Name PSReadLine) {
+# -ListAvailable walks every PSModulePath directory (~105ms). Any interactive
+# host has already imported PSReadLine, so the loaded-module check answers from
+# memory instead — and if it somehow isn't loaded, these options are moot anyway.
+if (Get-Module PSReadLine) {
     Set-PSReadLineOption -PredictionSource HistoryAndPlugin
     Set-PSReadLineOption -PredictionViewStyle InlineView
     Set-PSReadLineOption -EditMode Emacs
@@ -603,34 +623,103 @@ if (Get-Module -ListAvailable -Name PSReadLine) {
 
 # CompletionPredictor surfaces tab-completion results as inline predictions.
 # This is what makes typing `bra` ghost-suggest `brave` for never-run apps.
-if (Get-Module -ListAvailable -Name CompletionPredictor) {
-    Import-Module CompletionPredictor -ErrorAction SilentlyContinue
-}
+# No -ListAvailable probe first: that scan costs more than the import itself,
+# and Import-Module on a missing module is already a silent no-op here.
+Import-Module CompletionPredictor -ErrorAction SilentlyContinue
 
 # ─── INIT TOOLS ─────────────────────────────────────────────────────────
-Invoke-Expression (& { (starship init powershell | Out-String) })
-if (Get-Command atuin -ErrorAction SilentlyContinue) {
-    # `atuin init powershell` emits a 240-line module as a string ARRAY.
-    # Piping that array to Invoke-Expression binds each line as a separate
-    # command, so blank lines throw "empty string" and every multi-line block
-    # throws "Missing closing '}'" — and atuin never actually initializes.
-    # Out-String first, exactly as atuin's own usage comment instructs.
-    $atuinInit = atuin init powershell 2>$null | Out-String
-    if ($atuinInit) {
-        Invoke-Expression $atuinInit
+# Every `<tool> init powershell` is a process spawn, ~950ms across the five
+# below. The script each one emits only changes when the tool itself changes,
+# so cache it on disk and regenerate only when the binary is newer.
+#
+# NB: these must be dot-sourced from the profile's own (global) scope, not from
+# inside a helper — some of the generated scripts define unscoped helper
+# functions that would otherwise vanish when the helper returned. So the helper
+# only produces the cache path; the dot-sourcing happens out here.
+$script:InitCacheDir = "$env:LOCALAPPDATA\supershell\init"
+
+function Get-ToolInitScript {
+    param(
+        [Parameter(Mandatory)][string]      $Tool,
+        [Parameter(Mandatory)][scriptblock] $Generate
+    )
+
+    $cmd = Get-Command $Tool -CommandType Application -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if (-not $cmd) { return $null }
+
+    $cache  = Join-Path $script:InitCacheDir "$Tool.ps1"
+    $cached = Get-Item $cache -ErrorAction SilentlyContinue
+    $exe    = Get-Item $cmd.Source -ErrorAction SilentlyContinue
+
+    if (-not $cached -or ($exe -and $cached.LastWriteTimeUtc -lt $exe.LastWriteTimeUtc)) {
+        # Out-String, not the raw pipeline: these commands emit a string ARRAY,
+        # and re-evaluating that array line-by-line breaks every multi-line
+        # block in it (atuin's 240-line module is the worst offender).
+        $text = & $Generate | Out-String
+        if ([string]::IsNullOrWhiteSpace($text)) { return $null }
+        if (-not (Test-Path $script:InitCacheDir)) {
+            New-Item -ItemType Directory -Force -Path $script:InitCacheDir | Out-Null
+        }
+        Set-Content -Path $cache -Value $text -Encoding utf8
     }
+    $cache
 }
-if (Get-Command gh -ErrorAction SilentlyContinue) {
-    Invoke-Expression (& { (gh completion -s powershell | Out-String) })
+
+# Delete the cached init scripts and let the next shell regenerate them.
+function update-init-cache {
+    Remove-Item "$script:InitCacheDir\*.ps1" -Force -ErrorAction SilentlyContinue
+    Write-Host "✓ Cleared init cache — open a new shell to regenerate." -ForegroundColor Green
 }
-if (Get-Command glab -ErrorAction SilentlyContinue) {
-    Invoke-Expression (& { (glab completion -s powershell | Out-String) })
-}
+
+# --print-full-init, not plain `init`: the latter emits a one-line bootstrap
+# that re-invokes starship at runtime, so caching it would still pay a process
+# spawn on every prompt setup. --print-full-init emits the real script.
+$init = Get-ToolInitScript starship { starship init powershell --print-full-init }
+if ($init) { . $init }
+
+$init = Get-ToolInitScript atuin { atuin init powershell 2>$null }
+if ($init) { . $init }
+
+$init = Get-ToolInitScript gh { gh completion -s powershell }
+if ($init) { . $init }
+
+$init = Get-ToolInitScript glab { glab completion -s powershell }
+if ($init) { . $init }
 
 # zoxide MUST init last: its directory-tracking hook wraps whatever `prompt`
 # exists at init time. Starship defines `function global:prompt` outright, so
 # initializing zoxide first leaves the hook orphaned and the database empty.
-Invoke-Expression (& { (zoxide init powershell | Out-String) })
+$init = Get-ToolInitScript zoxide { zoxide init powershell }
+if ($init) { . $init }
+Remove-Variable init -ErrorAction SilentlyContinue
+
+# ─── BARE-WORD APP LAUNCHERS ───────────────────────────────────────────
+# Generate one function per cached app so `brave` just works (and so
+# CompletionPredictor can ghost-suggest apps you've never run).
+#
+# Runs LAST on purpose: the guard below is a snapshot of everything already
+# defined, so it only catches this profile's own functions and aliases if they
+# all exist by now. The expensive half of the collision check — CLIs on PATH,
+# cmdlets, module exports — already happened in update-apps, so this stays an
+# in-memory set lookup (~40ms for the whole loop) instead of ~6.5s of
+# per-name Get-Command.
+if ($script:AppMap.Count) {
+    $taken = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($existing in (Get-ChildItem Function:, Alias:)) { [void]$taken.Add($existing.Name) }
+
+    foreach ($appName in $script:AppMap.Keys) {
+        if ($taken.Contains($appName)) { continue }
+        $appPath = $script:AppMap[$appName]
+        # Closure, not string interpolation: paths with quotes can't break the body.
+        # Empty -ArgumentList is rejected on PS < 7.3, hence the guard.
+        Set-Item -Path "function:global:$appName" -Value {
+            if ($args) { Start-Process -FilePath $appPath -ArgumentList $args }
+            else       { Start-Process -FilePath $appPath }
+        }.GetNewClosure() -Force
+    }
+    Remove-Variable taken, appName, appPath -ErrorAction SilentlyContinue
+}
 
 # ─── DRACULA PIKACHU ───────────────────────────────────────────────────
 function Show-Pikachu {
