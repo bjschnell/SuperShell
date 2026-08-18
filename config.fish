@@ -1,8 +1,9 @@
 ###############################################################################
 #  ⚡ SUPER SHELL — fish config
 #  Brady's hyper-optimized CLI environment
-#  
-#  Dependencies (install via pacman/yay):
+#  Cross-platform: Linux (Arch/CachyOS) and macOS
+#
+#  Dependencies (install via your package manager — pacman/yay, Homebrew, scoop):
 #    Core:     eza bat fd fzf zoxide starship ripgrep
 #    System:   btop bottom dust duf procs bandwhich
 #    Data:     jq yq sd xsv csvlens
@@ -12,7 +13,7 @@
 #    Files:    yazi trash-cli
 #    Network:  xh doggo
 #    Shell:    atuin zellij navi tldr
-#    Desktop:  wl-clipboard (Wayland only — installed with --desktop)
+#    Desktop:  wl-clipboard (Linux/Wayland) — macOS uses built-in pbcopy/pbpaste
 #
 #  After installing, run:
 #    atuin init fish | source   (first time setup)
@@ -43,9 +44,13 @@ if status is-interactive
         --color=selected-bg:#44475a"
     # ─── CLIPBOARD BACKEND ──────────────────────────────────────────────
     # Detected once here and reused by the fzf ctrl-y bind and the clip*
-    # functions below. wl-clipboard only ships with --desktop, so an X11 or
-    # headless install has to fall back or say so plainly.
-    if command -q wl-copy
+    # functions below. macOS ships pbcopy/pbpaste; wl-clipboard only ships
+    # with --desktop, so an X11 or headless install has to fall back or say
+    # so plainly.
+    if command -q pbcopy
+        set -g __clip_copy  pbcopy
+        set -g __clip_paste pbpaste
+    else if command -q wl-copy
         set -g __clip_copy  wl-copy
         set -g __clip_paste wl-paste
     else if command -q xclip
@@ -76,8 +81,13 @@ if status is-interactive
     alias sed='sd'
     alias dig='doggo'
     alias curl='xh'                              # httpie-style ergonomics
-    alias rm='trash-put'                          # safe delete — recover with trash-restore
-    alias rmreal='/usr/bin/rm'                    # escape hatch for actual rm
+    # safe delete — trash-cli ships 'trash-put' on Linux, Homebrew's trash ships 'trash'
+    if command -q trash-put
+        alias rm='trash-put'                      # recover with trash-restore
+    else if command -q trash
+        alias rm='trash'                          # macOS: recover from Finder Trash
+    end
+    alias rmreal='command rm'                      # escape hatch for actual rm
     alias lg='lazygit'
     alias ld='lazydocker'
     alias y='yazi_cd'                             # yazi with directory tracking (see below)
@@ -116,18 +126,28 @@ if status is-interactive
     abbr -a dcl 'docker compose logs -f --tail 100'
     abbr -a dce 'docker compose exec'
     abbr -a dcps 'docker compose ps'
-    abbr -a sc  'sudo systemctl'
-    abbr -a sce 'sudo systemctl enable --now'
-    abbr -a scr 'sudo systemctl restart'
-    abbr -a scs 'systemctl status'
-    abbr -a scl 'journalctl -u'
-    abbr -a sclf 'journalctl -fu'
-    abbr -a pac 'sudo pacman -S'
-    abbr -a pacs 'pacman -Ss'
-    abbr -a pacr 'sudo pacman -Rns'
-    abbr -a pacu 'sudo pacman -Syu'
-    abbr -a yay 'yay -S'
-    abbr -a yays 'yay -Ss'
+    if test (uname) = Darwin
+        # macOS: Homebrew + brew services in place of pacman + systemctl
+        abbr -a brewi 'brew install'
+        abbr -a brews 'brew search'
+        abbr -a brewr 'brew uninstall'
+        abbr -a brewu 'brew update; and brew upgrade'
+        abbr -a bs  'brew services'
+        abbr -a bsr 'brew services restart'
+    else
+        abbr -a sc  'sudo systemctl'
+        abbr -a sce 'sudo systemctl enable --now'
+        abbr -a scr 'sudo systemctl restart'
+        abbr -a scs 'systemctl status'
+        abbr -a scl 'journalctl -u'
+        abbr -a sclf 'journalctl -fu'
+        abbr -a pac 'sudo pacman -S'
+        abbr -a pacs 'pacman -Ss'
+        abbr -a pacr 'sudo pacman -Rns'
+        abbr -a pacu 'sudo pacman -Syu'
+        abbr -a yay 'yay -S'
+        abbr -a yays 'yay -Ss'
+    end
 
     # ─── FUNCTIONS ──────────────────────────────────────────────────────
 
@@ -230,10 +250,14 @@ if status is-interactive
 
     # Quick port check — what's listening where
     function ports --description "Show listening ports"
-        sudo ss -tlnp | tail -n +2 | sort -t: -k2 -n
+        if test (uname) = Darwin
+            sudo lsof -nP -iTCP -sTCP:LISTEN
+        else
+            sudo ss -tlnp | tail -n +2 | sort -t: -k2 -n
+        end
     end
 
-    # ─── CLIPBOARD INTEGRATION (Wayland, X11, or nothing) ──────────────
+    # ─── CLIPBOARD INTEGRATION (pbcopy on macOS, Wayland/X11 on Linux) ──
     # Backend picked at startup — see __clip_copy / __clip_paste above.
 
     function __clip_check
@@ -441,9 +465,13 @@ if status is-interactive
         end
     end
 
-    # Tail a systemd service with syntax highlighting
-    function logtail --description "Follow systemd journal for a service with bat"
-        journalctl -fu $argv[1] -o cat | bat --paging=never -l log
+    # Tail a service/process log with syntax highlighting
+    function logtail --description "Follow system logs for a service/process with bat"
+        if test (uname) = Darwin
+            log stream --style compact --predicate "process == \"$argv[1]\"" | bat --paging=never -l log
+        else
+            journalctl -fu $argv[1] -o cat | bat --paging=never -l log
+        end
     end
 
     # ─── COMPLETIONS BOOST ──────────────────────────────────────────────
