@@ -23,7 +23,7 @@ $env:EDITOR = "nvim"
 $env:VISUAL = "nvim"
 $env:BAT_THEME = "Dracula"
 $env:FZF_DEFAULT_COMMAND = "fd.exe --hidden --type f . ."
-$env:FZF_DEFAULT_OPTS = "--height=60% --layout=reverse --border=rounded --margin=0,1 --preview-window=right:55%:wrap --bind=ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up --bind=ctrl-y:execute-silent(echo {} | clip.exe) --color=bg+:#44475a,bg:#282a36,spinner:#f1fa8c,hl:#ff79c6 --color=fg:#f8f8f2,header:#ff79c6,info:#bd93f9,pointer:#50fa7b --color=marker:#f1fa8c,fg+:#f8f8f2,prompt:#bd93f9,hl+:#ff79c6 --color=selected-bg:#44475a"
+$env:FZF_DEFAULT_OPTS = "--height=60% --layout=reverse --border=rounded --margin=0,1 --preview-window=right:55%:wrap --bind=ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up --bind='ctrl-y:execute-silent(echo {} | clip.exe)' --color=bg+:#44475a,bg:#282a36,spinner:#f1fa8c,hl:#ff79c6 --color=fg:#f8f8f2,header:#ff79c6,info:#bd93f9,pointer:#50fa7b --color=marker:#f1fa8c,fg+:#f8f8f2,prompt:#bd93f9,hl+:#ff79c6 --color=selected-bg:#44475a"
 
 # ─── SHELL MODE ─────────────────────────────────────────────────────────
 # `pwsh -Command` / `-File` loads this profile too, so everything below this
