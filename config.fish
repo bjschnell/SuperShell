@@ -1,9 +1,10 @@
 ###############################################################################
 #  ⚡ SUPER SHELL — fish config
 #  Brady's hyper-optimized CLI environment
-#  Cross-platform: Linux (Arch/CachyOS) and macOS
+#  Cross-platform: Linux (Arch/CachyOS, Debian/Ubuntu) and macOS
 #
-#  Dependencies (install via your package manager — pacman/yay, Homebrew, scoop):
+#  Dependencies (install via your package manager — pacman/yay, apt + Homebrew,
+#  Homebrew, scoop):
 #    Core:     eza bat fd fzf zoxide starship ripgrep
 #    System:   btop bottom dust duf procs bandwhich
 #    Data:     jq yq sd xsv csvlens
@@ -23,6 +24,14 @@
 if status is-interactive
 
     # ─── ENVIRONMENT ────────────────────────────────────────────────────
+    # Debian/Ubuntu installs get most tools from Homebrew. Checked by path
+    # rather than `command -q brew` because brew isn't on PATH until this runs.
+    for brew_bin in /home/linuxbrew/.linuxbrew/bin/brew $HOME/.linuxbrew/bin/brew
+        if test -x $brew_bin
+            $brew_bin shellenv fish | source
+            break
+        end
+    end
     # Claude Code's native installer places the binary here — most systems
     # add it to PATH automatically, but this is a safety net.
     if test -d "$HOME/.local/bin"
@@ -141,12 +150,19 @@ if status is-interactive
         abbr -a scs 'systemctl status'
         abbr -a scl 'journalctl -u'
         abbr -a sclf 'journalctl -fu'
-        abbr -a pac 'sudo pacman -S'
-        abbr -a pacs 'pacman -Ss'
-        abbr -a pacr 'sudo pacman -Rns'
-        abbr -a pacu 'sudo pacman -Syu'
-        abbr -a yay 'yay -S'
-        abbr -a yays 'yay -Ss'
+        if command -q pacman
+            abbr -a pac 'sudo pacman -S'
+            abbr -a pacs 'pacman -Ss'
+            abbr -a pacr 'sudo pacman -Rns'
+            abbr -a pacu 'sudo pacman -Syu'
+            abbr -a yay 'yay -S'
+            abbr -a yays 'yay -Ss'
+        else if command -q apt
+            abbr -a apti 'sudo apt install'
+            abbr -a apts 'apt search'
+            abbr -a aptr 'sudo apt autoremove --purge'
+            abbr -a aptu 'sudo apt update && sudo apt upgrade'
+        end
     end
 
     # ─── FUNCTIONS ──────────────────────────────────────────────────────
@@ -383,7 +399,7 @@ if status is-interactive
 ║  ports → show listening ports                                    ║
 ║  psk   → fuzzy process kill                                      ║
 ║  sc/sce/scr/scs/scl/sclf → systemctl shortcuts                  ║
-║  pac/pacs/pacr/pacu → pacman shortcuts                           ║
+║  pac/pacs/pacr/pacu → pacman  ·  apti/apts/aptr/aptu → apt       ║
 ║                                                                  ║
 ║  MULTIPLEXER (zellij)                                            ║
 ║  ────────────────────                                            ║

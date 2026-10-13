@@ -1,5 +1,12 @@
 # Bash equivalent of PowerShell profile commands
 
+# Debian/Ubuntu installs get most tools from Homebrew — load it first so the
+# command -v checks below can see them.
+for _brew in /home/linuxbrew/.linuxbrew/bin/brew "$HOME/.linuxbrew/bin/brew"; do
+    [ -x "$_brew" ] && { eval "$("$_brew" shellenv)"; break; }
+done
+unset _brew
+
 # sudo alias (though 'sudo' already exists natively in bash)
 alias sudo='sudo '
 

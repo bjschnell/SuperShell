@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 ###############################################################################
-#  ⚡ Super Shell — Updater (Arch/CachyOS)
+#  ⚡ Super Shell — Updater (Arch / Debian / Ubuntu)
 #
 #  Pulls the latest configs and deploys them. Deliberately does NOT touch
-#  system state: no pacman -Syu, no chsh, no docker group, no service enables,
-#  no font prompt. Those belong to install-supershell.sh, which you run once
+#  system state: no pacman -Syu / apt upgrade, no chsh, no docker group, no
+#  service enables, no font prompt. Those belong to install-supershell.sh, which you run once
 #  per machine (or again when new packages land).
 #
 #  Run: ./update-supershell.sh [--no-pull] [--dry-run] [--force]
@@ -189,8 +189,15 @@ fi
 
 # ─── Tool check ─────────────────────────────────────────────────────────
 # Config changes sometimes assume a tool the installer added. Check commands,
-# not package names, so this stays honest regardless of pacman/AUR/manual.
+# not package names, so this stays honest regardless of pacman/AUR/apt/brew.
 section "Tool check"
+
+# Run from bash, Homebrew (Debian/Ubuntu) may not be on PATH yet.
+if ! command -v brew &>/dev/null; then
+    for b in /home/linuxbrew/.linuxbrew/bin/brew "$HOME/.linuxbrew/bin/brew"; do
+        [ -x "$b" ] && { eval "$("$b" shellenv)"; break; }
+    done
+fi
 
 REQUIRED=(fish eza bat fd fzf zoxide starship rg nvim git)
 OPTIONAL=(dust duf procs sd xh doggo yazi lazygit delta lazydocker \

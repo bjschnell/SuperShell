@@ -1,6 +1,6 @@
 # ⚡ Super Shell
 
-A fully portable, opinionated CLI environment built around modern Rust/Go replacements for classic Unix tools. One script bootstraps the entire setup on a fresh **Arch/CachyOS**, **macOS**, or **Windows 11** machine — shell config, tools, theme, cheatsheets, and all.
+A fully portable, opinionated CLI environment built around modern Rust/Go replacements for classic Unix tools. One script bootstraps the entire setup on a fresh **Arch/CachyOS**, **Debian/Ubuntu**, **macOS**, or **Windows 11** machine — shell config, tools, theme, cheatsheets, and all.
 
 ```
 ⣿⣿⣿⣿⣿⣿⣿⠿⣛⣩⣴⣾⡿⠃⢀⣠⣾⣿⣿⣿⣿⣿⣿
@@ -63,7 +63,7 @@ Plus these tools that don't replace anything — they're just essential:
 
 ## Quick start
 
-### Linux (Arch/Hyprland)
+### Linux (Arch, Debian, Ubuntu)
 
 ```bash
 git clone https://github.com/bjschnell/SuperShell.git
@@ -71,8 +71,25 @@ cd SuperShell
 ./install-supershell.sh
 ```
 
+The script reads `/etc/os-release` and picks the package manager for you
+(derivatives like CachyOS, EndeavourOS, Mint, and Pop!_OS are detected through
+`ID_LIKE`):
+
+| Distro family | System layer | Modern CLI tools |
+|---------------|--------------|------------------|
+| Arch | pacman | pacman + AUR via yay/paru |
+| Debian / Ubuntu | apt, plus Docker's and Tailscale's official apt repos | [Homebrew](https://brew.sh) (installed for you if missing) |
+
+On Debian/Ubuntu, apt's copies of these tools are missing, years old, renamed
+(`batcat`, `fdfind`), or a different program (apt's `yq`), so they come from
+Homebrew instead. Fish itself stays on apt so your login shell doesn't depend
+on brew. Run the script as your normal user, not root, since Homebrew won't
+run as root. Two limits: `xsv` is skipped (Homebrew disabled it), and
+`--desktop` only installs `wl-clipboard`, because the Hyprland stack is
+Arch-only.
+
 The script will:
-- Refresh pacman and install all packages (official repos + AUR via yay/paru)
+- Upgrade the system and install all packages for your distro
 - Set fish as your default shell
 - Configure git delta with Dracula theme
 - Add you to the docker group and enable the docker/tailscale services
@@ -112,14 +129,14 @@ Uses winget + scoop. Deploys an equivalent PowerShell 7 profile with all the sam
 |------|---------------|---------|--------|
 | Dry run | `--dry-run` | `-DryRun` | Preview what would be installed |
 | No config | `--no-config` | `-NoConfig` | Skip deploying config files |
-| Desktop | `--desktop` | — | Also install Hyprland/desktop packages (Linux only) |
+| Desktop | `--desktop` | — | Also install Hyprland/desktop packages (Arch; Debian/Ubuntu gets `wl-clipboard` only) |
 
 ## Updating
 
 Run the installer **once** per machine. After that, pick up config changes with
 the updater — it pulls, deploys, and stamps the version, and never touches
-system state (no `pacman -Syu` / `brew upgrade`, no `chsh`, no services, no
-package installs).
+system state (no `pacman -Syu` / `apt upgrade` / `brew upgrade`, no `chsh`, no
+services, no package installs).
 
 ```bash
 cd SuperShell && ./update-supershell.sh        # Linux
@@ -254,7 +271,7 @@ supershell/
 ├── bash-profile                           # Bash companion — source it manually
 ├── tools.txt                              # Full tool reference file
 ├── supershell.cheat                       # Navi cheatsheet
-├── install-supershell.sh                  # Linux installer (Arch/CachyOS)
+├── install-supershell.sh                  # Linux installer (Arch, Debian/Ubuntu)
 ├── install-supershell-macos.sh            # macOS installer (Homebrew)
 ├── install-supershell.ps1                 # Windows installer (winget + scoop)
 ├── update-supershell.sh                   # Linux updater (configs only)
@@ -307,6 +324,7 @@ The action updates `VERSION`, prepends to `CHANGELOG.md`, creates a git tag, and
 ## Requirements
 
 **Linux:** Arch-based distro with `pacman`. AUR helper (`yay` or `paru`) needed for some packages — the script warns if missing.
+Or Debian/Ubuntu-based with `apt` and `sudo`. Homebrew is installed automatically (x86_64 or ARM64).
 
 **macOS:** [Homebrew](https://brew.sh) — the installer offers to install it if missing. Works on Apple Silicon and Intel.
 

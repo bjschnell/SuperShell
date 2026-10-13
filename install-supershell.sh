@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 ###############################################################################
-#  ⚡ Super Shell — Full Environment Bootstrap for Arch/CachyOS
+#  ⚡ Super Shell — Full Environment Bootstrap for Arch / Debian / Ubuntu
 #  
 #  Installs everything needed to recreate Brady's shell environment from
-#  scratch on any fresh Arch-based system.
+#  scratch on a fresh Arch-based (pacman + AUR) or Debian/Ubuntu-based
+#  (apt + Homebrew) system. The distro is detected from /etc/os-release.
 #
 #  Run: chmod +x install-supershell.sh && ./install-supershell.sh
 #  
 #  Options:
 #    --dry-run     Show what would be installed without installing
 #    --no-config   Skip config file deployment
-#    --desktop     Also install desktop/Hyprland packages
+#    --desktop     Also install desktop/Hyprland packages (Hyprland: Arch only)
 ###############################################################################
 
 set -euo pipefail
@@ -54,7 +55,7 @@ cat << 'EOF'
 ╔══════════════════════════════════════════════════════╗
 ║  ⚡ Super Shell — Full Environment Bootstrap          ║
 ║                                                      ║
-║  Arch/CachyOS • Fish • Dracula                       ║
+║  Arch • Debian • Ubuntu • Fish • Dracula             ║
 ╚══════════════════════════════════════════════════════╝
 EOF
 echo -e "${NC}"
@@ -64,9 +65,30 @@ if $DRY_RUN; then
     echo ""
 fi
 
+# ─── Distro detection ───────────────────────────────────────────────────
+# ID_LIKE catches derivatives (CachyOS/EndeavourOS/Manjaro → arch,
+# Mint/Pop!_OS → ubuntu → debian) without listing every one by name.
+if [ -r /etc/os-release ]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+fi
+DISTRO_NAME="${PRETTY_NAME:-${ID:-unknown}}"
+case " ${ID:-} ${ID_LIKE:-} " in
+    *" arch "*)                 DISTRO="arch" ;;
+    *" debian "*|*" ubuntu "*)  DISTRO="debian" ;;
+    *)
+        err "Unsupported distro: $DISTRO_NAME"
+        err "Supported: Arch-based (pacman) and Debian/Ubuntu-based (apt)"
+        exit 1
+        ;;
+esac
+info "Detected $DISTRO_NAME → using $([ "$DISTRO" = arch ] && echo "pacman + AUR" || echo "apt + Homebrew")"
+
 ###############################################################################
 # PACKAGE LISTS
 ###############################################################################
+
+# ═══ Arch (pacman + AUR) ════════════════════════════════════════════════
 
 # ── Foundational — needs to exist before anything else ──────────────────
 PACMAN_FOUNDATION=(
@@ -191,6 +213,86 @@ AUR_DESKTOP=(
     bibata-cursor-theme       # cursor theme
 )
 
+# ═══ Debian / Ubuntu (apt + Homebrew) ═══════════════════════════════════
+# apt only carries the system layer. Most of the modern tools are missing
+# from apt, stale (Ubuntu 22.04 ships neovim 0.6 and fzf 0.29), renamed
+# (bat → batcat, fd → fdfind) or a different program entirely (apt's yq is
+# the Python one). Homebrew has all of them, current, under their real names.
+
+# ── Foundation — also everything Homebrew's installer needs ─────────────
+APT_FOUNDATION=(
+    build-essential           # compilers (Homebrew requirement)
+    procps                    # ps & co (Homebrew requirement)
+    file                      # (Homebrew requirement)
+    git                       # version control
+    fish                      # shell — from apt so the login shell never depends on brew
+    openssh-client            # ssh client
+    wget                      # fallback fetcher
+    curl                      # http client
+    unzip                     # archive handling
+    xz-utils                  # Nerd Font archives are .tar.xz
+    man-db                    # man pages
+    ca-certificates           # https for third-party apt repos
+    gnupg                     # repo signing keys
+    fontconfig                # fc-list / fc-cache for the Nerd Font check
+)
+
+# ── Tools apt ships fine on every supported release ─────────────────────
+APT_TOOLS=(
+    btop                      # top replacement (TUI)
+    ripgrep                   # grep replacement
+    jq                        # JSON processor
+    trash-cli                 # safe rm
+)
+
+# ── Desktop (only with --desktop) — Hyprland itself stays Arch-only ─────
+APT_DESKTOP=(
+    wl-clipboard              # Wayland clipboard (wl-copy/wl-paste)
+)
+
+# ── Homebrew formulae — everything apt lacks or gets wrong ──────────────
+# xsv is absent: Homebrew disabled it (unmaintained upstream).
+BREW_TOOLS=(
+    neovim                    # editor (apt's is too old for modern configs)
+    eza                       # ls replacement
+    bat                       # cat replacement
+    fd                        # find replacement
+    fzf                       # fuzzy finder
+    zoxide                    # cd replacement
+    starship                  # prompt
+    bottom                    # alt system monitor (btm)
+    dust                      # visual du replacement
+    duf                       # pretty df
+    procs                     # modern ps
+    bandwhich                 # per-process bandwidth monitor
+    yq                        # YAML processor (mikefarah's, same as Arch)
+    sd                        # sed replacement
+    csvlens                   # interactive CSV viewer
+    git-delta                 # syntax-highlighted diffs
+    lazygit                   # git TUI
+    git-absorb                # auto fixup commits
+    gh                        # GitHub CLI
+    glab                      # GitLab CLI
+    doggo                     # DNS lookup tool
+    xh                        # httpie-style curl
+    yazi                      # terminal file manager
+    zellij                    # modern tmux alternative
+    atuin                     # shell history sync/search
+    navi                      # interactive cheatsheet
+    tealdeer                  # tldr — quick command examples
+    lazydocker                # docker TUI
+)
+
+# Docker's own apt repo — distro docker.io lacks the compose/buildx plugins
+# on older releases (Debian 12 still ships compose v1).
+DOCKER_APT_PKGS=(
+    docker-ce
+    docker-ce-cli
+    containerd.io
+    docker-buildx-plugin
+    docker-compose-plugin
+)
+
 ###############################################################################
 # INSTALLATION LOGIC
 ###############################################################################
@@ -262,50 +364,234 @@ install_aur_group() {
     fi
 }
 
-# ── Refresh package database ──
-section "Syncing package database & upgrading"
-if $DRY_RUN; then
-    warn "[dry-run] Would run: sudo pacman -Syu"
+install_apt_group() {
+    local group_name="$1"
+    shift
+    local pkgs=("$@")
+
+    section "$group_name"
+
+    local missing=()
+    for pkg in "${pkgs[@]}"; do
+        if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
+            ok "$pkg"
+        else
+            missing+=("$pkg")
+        fi
+    done
+
+    if [ ${#missing[@]} -eq 0 ]; then
+        ok "All $group_name packages present"
+        return
+    fi
+
+    info "Missing: ${missing[*]}"
+    if $DRY_RUN; then
+        warn "[dry-run] Would install: ${missing[*]}"
+    else
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "${missing[@]}" || {
+            err "Some apt packages failed. Continuing..."
+        }
+    fi
+}
+
+install_brew_group() {
+    local group_name="$1"
+    shift
+    local pkgs=("$@")
+
+    section "$group_name (Homebrew)"
+
+    if ! command -v brew &>/dev/null && ! $DRY_RUN; then
+        warn "Homebrew unavailable — skipping $group_name"
+        return
+    fi
+
+    # One `brew list` instead of one per formula — each call costs ~0.5s.
+    local installed=""
+    command -v brew &>/dev/null && installed=$(brew list --formula -1 2>/dev/null || true)
+
+    local missing=()
+    for pkg in "${pkgs[@]}"; do
+        if grep -qx "$pkg" <<< "$installed"; then
+            ok "$pkg"
+        else
+            missing+=("$pkg")
+        fi
+    done
+
+    if [ ${#missing[@]} -eq 0 ]; then
+        ok "All $group_name formulae present"
+        return
+    fi
+
+    info "Missing: ${missing[*]}"
+    if $DRY_RUN; then
+        warn "[dry-run] Would install via brew: ${missing[*]}"
+    else
+        brew install "${missing[@]}" || {
+            err "Some formulae failed. You may need to install manually."
+        }
+    fi
+}
+
+# Puts an existing Homebrew on PATH for the rest of this script. Checks the
+# default prefix and the single-user fallback the installer may have used.
+load_homebrew() {
+    local b
+    for b in /home/linuxbrew/.linuxbrew/bin/brew "$HOME/.linuxbrew/bin/brew"; do
+        if [ -x "$b" ]; then
+            eval "$("$b" shellenv)"
+            return 0
+        fi
+    done
+    return 1
+}
+
+ensure_homebrew() {
+    section "Homebrew"
+    if command -v brew &>/dev/null || load_homebrew; then
+        ok "Homebrew: $(command -v brew)"
+        return
+    fi
+    if [ "$(id -u)" -eq 0 ]; then
+        err "Homebrew refuses to run as root — re-run this script as your normal user"
+        return
+    fi
+    info "Installing Homebrew (needs sudo to create /home/linuxbrew)..."
+    if $DRY_RUN; then
+        warn "[dry-run] Would run the Homebrew installer from https://brew.sh"
+        return
+    fi
+    # NONINTERACTIVE skips the "press RETURN" prompt; it uses `sudo -n`, which
+    # works because the apt steps above already cached sudo credentials.
+    sudo -v
+    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || true
+    if load_homebrew; then
+        ok "Homebrew installed"
+    else
+        err "Homebrew install failed — Homebrew packages will be skipped"
+    fi
+}
+
+install_docker_apt() {
+    section "Docker (download.docker.com)"
+    if command -v docker &>/dev/null; then
+        ok "docker already installed ($(command -v docker))"
+        return
+    fi
+    # Derivatives (Mint, Pop!_OS) carry their own VERSION_CODENAME; Docker
+    # publishes for the Ubuntu base, which they expose as UBUNTU_CODENAME.
+    local repo_os="debian" codename="${VERSION_CODENAME:-}"
+    if [ -n "${UBUNTU_CODENAME:-}" ]; then
+        repo_os="ubuntu"
+        codename="$UBUNTU_CODENAME"
+    fi
+    if [ -z "$codename" ]; then
+        err "Can't determine release codename — skipping Docker"
+        return
+    fi
+    if $DRY_RUN; then
+        warn "[dry-run] Would add the Docker apt repo ($repo_os $codename) and install: ${DOCKER_APT_PKGS[*]}"
+        return
+    fi
+    sudo install -m 0755 -d /etc/apt/keyrings
+    sudo curl -fsSL "https://download.docker.com/linux/$repo_os/gpg" -o /etc/apt/keyrings/docker.asc
+    sudo chmod a+r /etc/apt/keyrings/docker.asc
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/$repo_os $codename stable" \
+        | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+    if sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "${DOCKER_APT_PKGS[@]}"; then
+        ok "Docker installed"
+    else
+        err "Docker install failed — is $repo_os/$codename published at download.docker.com?"
+    fi
+}
+
+install_tailscale_apt() {
+    section "Tailscale"
+    if command -v tailscale &>/dev/null; then
+        ok "tailscale already installed"
+        return
+    fi
+    if $DRY_RUN; then
+        warn "[dry-run] Would run: curl -fsSL https://tailscale.com/install.sh | sh"
+        return
+    fi
+    # Tailscale's script adds their apt repo for the detected release.
+    curl -fsSL https://tailscale.com/install.sh | sh || err "Tailscale install failed"
+}
+
+if [ "$DISTRO" = arch ]; then
+    # ── Refresh package database ──
+    section "Syncing package database & upgrading"
+    if $DRY_RUN; then
+        warn "[dry-run] Would run: sudo pacman -Syu"
+    else
+        sudo pacman -Syu --noconfirm
+        ok "System upgraded and package database synced"
+    fi
+
+    # ── Detect AUR helper ──
+    section "Detecting AUR helper"
+    if command -v yay &>/dev/null; then
+        AUR_HELPER="yay"
+        ok "AUR helper: yay"
+    elif command -v paru &>/dev/null; then
+        AUR_HELPER="paru"
+        ok "AUR helper: paru"
+    else
+        AUR_HELPER=""
+        warn "No AUR helper found (yay/paru)"
+        warn "Install yay: https://github.com/Jguer/yay"
+        warn "AUR packages will be skipped"
+    fi
+
+    # ── Install everything ──
+    install_pacman_group "Foundation"         "${PACMAN_FOUNDATION[@]}"
+    install_pacman_group "Shell Core"         "${PACMAN_SHELL_CORE[@]}"
+    install_pacman_group "System Monitoring"  "${PACMAN_SYSTEM[@]}"
+    install_pacman_group "Data Wrangling"     "${PACMAN_DATA[@]}"
+    install_pacman_group "Git Tooling"        "${PACMAN_GIT[@]}"
+    install_pacman_group "Network & DNS"      "${PACMAN_NETWORK[@]}"
+    install_pacman_group "File Management"    "${PACMAN_FILES[@]}"
+    install_pacman_group "Multiplexer"        "${PACMAN_MULTIPLEX[@]}"
+    install_pacman_group "Shell Utilities"    "${PACMAN_SHELL_UTILS[@]}"
+    install_pacman_group "Docker"             "${PACMAN_DOCKER[@]}"
+
+    if $DESKTOP; then
+        install_pacman_group "Desktop / Hyprland" "${PACMAN_DESKTOP[@]}"
+    fi
+
+    install_aur_group "Core Tools"  "${AUR_CORE[@]}"
+
+    if $DESKTOP; then
+        install_aur_group "Desktop Extras" "${AUR_DESKTOP[@]}"
+    fi
 else
-    sudo pacman -Syu --noconfirm
-    ok "System upgraded and package database synced"
-fi
+    # ── Refresh package database ──
+    section "Syncing package database & upgrading"
+    if $DRY_RUN; then
+        warn "[dry-run] Would run: sudo apt-get update && sudo apt-get upgrade"
+    else
+        sudo apt-get update
+        sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
+        ok "System upgraded and package database synced"
+    fi
 
-# ── Detect AUR helper ──
-section "Detecting AUR helper"
-if command -v yay &>/dev/null; then
-    AUR_HELPER="yay"
-    ok "AUR helper: yay"
-elif command -v paru &>/dev/null; then
-    AUR_HELPER="paru"
-    ok "AUR helper: paru"
-else
-    AUR_HELPER=""
-    warn "No AUR helper found (yay/paru)"
-    warn "Install yay: https://github.com/Jguer/yay"
-    warn "AUR packages will be skipped"
-fi
+    install_apt_group "Foundation"  "${APT_FOUNDATION[@]}"
+    install_apt_group "Tools (apt)" "${APT_TOOLS[@]}"
 
-# ── Install everything ──
-install_pacman_group "Foundation"         "${PACMAN_FOUNDATION[@]}"
-install_pacman_group "Shell Core"         "${PACMAN_SHELL_CORE[@]}"
-install_pacman_group "System Monitoring"  "${PACMAN_SYSTEM[@]}"
-install_pacman_group "Data Wrangling"     "${PACMAN_DATA[@]}"
-install_pacman_group "Git Tooling"        "${PACMAN_GIT[@]}"
-install_pacman_group "Network & DNS"      "${PACMAN_NETWORK[@]}"
-install_pacman_group "File Management"    "${PACMAN_FILES[@]}"
-install_pacman_group "Multiplexer"        "${PACMAN_MULTIPLEX[@]}"
-install_pacman_group "Shell Utilities"    "${PACMAN_SHELL_UTILS[@]}"
-install_pacman_group "Docker"             "${PACMAN_DOCKER[@]}"
+    if $DESKTOP; then
+        install_apt_group "Desktop" "${APT_DESKTOP[@]}"
+        warn "Hyprland and the desktop theme packages are Arch-only — skipped"
+    fi
 
-if $DESKTOP; then
-    install_pacman_group "Desktop / Hyprland" "${PACMAN_DESKTOP[@]}"
-fi
+    install_docker_apt
+    install_tailscale_apt
 
-install_aur_group "Core Tools"  "${AUR_CORE[@]}"
-
-if $DESKTOP; then
-    install_aur_group "Desktop Extras" "${AUR_DESKTOP[@]}"
+    ensure_homebrew
+    install_brew_group "Core Tools" "${BREW_TOOLS[@]}"
+    info "xsv isn't available on Debian/Ubuntu (Homebrew disabled it) — csvlens covers viewing"
 fi
 
 # ── Claude Code CLI (official installer — auto-updates, not AUR-lagged) ──
@@ -341,7 +627,9 @@ if command -v fish &>/dev/null; then
             $DRY_RUN || echo "$FISH_PATH" | sudo tee -a /etc/shells >/dev/null
         fi
         info "Setting fish as default shell"
-        $DRY_RUN || chsh -s "$FISH_PATH"
+        # sudo: plain chsh prompts for the password again (and fails under
+        # curl | bash); the credentials are already cached from the installs.
+        $DRY_RUN || sudo chsh -s "$FISH_PATH" "$USER"
         ok "Default shell set to fish"
     else
         ok "Fish is already default shell"
@@ -433,7 +721,11 @@ if fc-list 2>/dev/null | grep -qi "nerd"; then
     ok "Nerd Font detected"
 else
     warn "No Nerd Font found — eza icons will render as broken squares"
-    info "Install one with: sudo pacman -S ttf-jetbrains-mono-nerd"
+    if [ "$DISTRO" = arch ]; then
+        info "Install one with: sudo pacman -S ttf-jetbrains-mono-nerd"
+    else
+        info "Install one from: https://github.com/ryanoasis/nerd-fonts/releases"
+    fi
     info "Or browse: https://www.nerdfonts.com/"
     # `set -e` + a non-TTY stdin (curl | bash) made a failed read abort the
     # whole script here, before any config was deployed.
@@ -441,7 +733,16 @@ else
         font_reply=""
         read -rp "Install JetBrains Mono Nerd Font now? [y/N] " font_reply || true
         if [[ "$font_reply" =~ ^[Yy]$ ]]; then
-            sudo pacman -S --needed --noconfirm ttf-jetbrains-mono-nerd
+            if [ "$DISTRO" = arch ]; then
+                sudo pacman -S --needed --noconfirm ttf-jetbrains-mono-nerd
+            else
+                # Not packaged for apt, and Homebrew's font casks are macOS-only.
+                FONT_DIR="$HOME/.local/share/fonts/JetBrainsMonoNerd"
+                mkdir -p "$FONT_DIR"
+                curl -fsSL https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz \
+                    | tar -xJ -C "$FONT_DIR"
+                fc-cache -f "$FONT_DIR" >/dev/null
+            fi
             ok "JetBrains Mono Nerd Font installed"
         else
             warn "Skipping font install — icons may not display correctly"

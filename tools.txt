@@ -225,3 +225,5 @@
              scl (journal), sclf (journal follow)
   Pacman:    pac (install), pacs (search), pacr (remove), pacu (upgrade)
   AUR:       yay (install), yays (search)
+  Apt:       apti (install), apts (search), aptr (remove), aptu (upgrade)
+             (Debian/Ubuntu — most tools there come from Homebrew: brew upgrade)

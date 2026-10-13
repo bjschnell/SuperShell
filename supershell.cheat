@@ -335,6 +335,32 @@ $ query: echo ""
 $ installed_package: pacman -Qeq
 $ aur_query: echo ""
 
+% supershell, apt
+
+# Install a package
+sudo apt install <apt_package>
+
+# Search for a package
+apt search <query>
+
+# Remove a package and its unneeded deps
+sudo apt autoremove --purge <apt_installed>
+
+# Full system upgrade
+sudo apt update && sudo apt upgrade
+
+# Upgrade Homebrew-installed tools (most SuperShell tools on Debian/Ubuntu)
+brew upgrade
+
+# List manually installed packages
+apt-mark showmanual
+
+# Remove orphaned packages
+sudo apt autoremove --purge
+
+$ apt_package: apt-cache pkgnames | sort
+$ apt_installed: apt-mark showmanual
+
 % supershell, files
 
 # List files (colored, icons, dirs first)
