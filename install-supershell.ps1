@@ -319,6 +319,25 @@ Install-ScoopGroup "Extra Tools" $ScoopExtras
 # that winget and scoop just wrote to the registry.
 Update-SessionPath
 
+# ── Valkyrie agent terminal ──
+# Its own release installer: verifies the checksum, puts valk on the user PATH,
+# and adds a Windows Terminal profile.
+Write-Section "Valkyrie agent terminal"
+$valkInstallUrl = "https://raw.githubusercontent.com/bjschnell/Valkyrie/main/install.ps1"
+if (Get-Command valk -ErrorAction SilentlyContinue) {
+    Write-Ok "Valkyrie already installed — 'valk upgrade' updates it"
+} elseif ($DryRun) {
+    Write-Warn "[dry-run] Would run: irm $valkInstallUrl | iex"
+} else {
+    Write-Info "Installing Valkyrie (valk)..."
+    Invoke-RestMethod -Uri $valkInstallUrl | Invoke-Expression
+    if (Get-Command valk -ErrorAction SilentlyContinue) {
+        Write-Ok "Valkyrie installed — run 'valk' to open it"
+    } else {
+        Write-Err "Valkyrie install failed — check output above"
+    }
+}
+
 Write-Section "Post-install setup"
 
 # ── OpenSSH client (built into Windows 11, not a winget package) ──
@@ -613,6 +632,7 @@ Write-Host @"
 ║  │  lazygit, delta, git-absorb, gh, glab         │    ║
 ║  ├─ AI ──────────────────────────────────────────┤    ║
 ║  │  Claude Code CLI                                │    ║
+║  │  Valkyrie agent terminal                      │    ║
 ║  ├─ Docker ─────────────────────────────────────┤    ║
 ║  │  Docker Desktop, lazydocker                   │    ║
 ║  ├─ Network ────────────────────────────────────┤    ║

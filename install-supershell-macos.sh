@@ -248,6 +248,26 @@ install_brew_group "Shell Utilities"    "${BREW_SHELL_UTILS[@]}"
 
 install_cask_group "Fonts"              "${BREW_CASK_FONTS[@]}"
 
+# ── Valkyrie agent terminal ───────────────────────────────────────────
+# Its own release installer: verifies the checksum, puts valk in ~/.local/bin,
+# and hands a running daemon to the new binary.
+section "Valkyrie agent terminal"
+VALK_INSTALL_URL="https://raw.githubusercontent.com/bjschnell/Valkyrie/main/install-release.sh"
+if command -v valk &>/dev/null || [ -x "$HOME/.local/bin/valk" ]; then
+    ok "Valkyrie already installed — 'valk upgrade' updates it"
+elif [ "$(uname -m)" != "arm64" ]; then
+    warn "Valkyrie ships prebuilt for Apple silicon only — skipped (build from source instead)"
+elif $DRY_RUN; then
+    warn "[dry-run] Would run: curl -fsSL $VALK_INSTALL_URL | bash"
+else
+    info "Installing Valkyrie (valk)..."
+    if curl -fsSL "$VALK_INSTALL_URL" | bash; then
+        ok "Valkyrie installed — run 'valk' to open it"
+    else
+        err "Valkyrie install failed — check output above"
+    fi
+fi
+
 ###############################################################################
 # POST-INSTALL CONFIGURATION
 ###############################################################################
@@ -403,6 +423,8 @@ cat << 'EOF'
 ║  │  doggo, xh                                    │    ║
 ║  ├─ Data ───────────────────────────────────────┤    ║
 ║  │  jq, yq, sd, xsv, csvlens                    │    ║
+║  ├─ AI ─────────────────────────────────────────┤    ║
+║  │  Valkyrie agent terminal                      │    ║
 ║  └─ Font ───────────────────────────────────────┘    ║
 ║     JetBrains Mono Nerd Font                          ║
 ║                                                      ║
